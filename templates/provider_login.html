@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNEAKER POINT | Acceso de proveedores</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='storefront.css') }}">
+</head>
+<body class="auth-body">
+<main class="auth-container">
+    <span class="auth-role">Portal de proveedores</span>
+    <h1>SNEAKER POINT</h1>
+    <h2>Acceso de proveedor</h2>
+    <p class="auth-brandline">Administra tus productos y sigue su revisión.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="flash-message flash-{{ category }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+    <form method="POST" class="standard-form">
+        <div class="form-group"><label for="correo">Correo registrado</label><input id="correo" name="correo" type="email" autocomplete="username" required></div>
+        <div class="form-group"><label for="contraseña">Contraseña</label><input id="contraseña" name="contraseña" type="password" autocomplete="current-password" minlength="8" maxlength="20" required></div>
+        <button class="btn-primary btn-full-width" type="submit">Entrar al portal</button>
+    </form>
+    <p class="switch-link">¿Nuevo proveedor? <a href="{{ url_for('provider_register') }}">Solicita una cuenta</a><br><a href="{{ url_for('index') }}">Volver a la tienda</a></p>
+</main>
+</body>
+</html>

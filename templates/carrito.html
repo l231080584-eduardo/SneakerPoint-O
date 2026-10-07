@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Carrito{% endblock %}
+
+{% block content %}
+<div class="catalog-toolbar"><div><p class="section-kicker">Tu selección</p><h1 class="page-title">Carrito de compras</h1></div><a class="btn-secondary" href="{{ url_for('index') }}">Seguir viendo tenis</a></div>
+{% if items %}
+<div class="cart-layout">
+    <section class="cart-items-list">
+        {% for item in items %}
+        <article class="cart-item">
+            <div class="item-details-group">
+                <div class="item-image-small"><i class="fas fa-shoe-prints"></i></div>
+                <div>
+                    <p class="item-name">{{ item.producto.nombre }}</p>
+                    <p class="item-price-unit">{{ item.producto.marca }} · Talla {{ item.talla_seleccionada }}</p>
+                    <p class="item-price-unit">${{ "{:,.2f}".format(item.producto.precio) }} c/u · Cantidad {{ item.cantidad }}</p>
+                </div>
+            </div>
+            <div class="item-summary"><p class="item-subtotal">${{ "{:,.2f}".format(item.subtotal) }}</p></div>
+            <form method="POST" action="{{ url_for('eliminar', cart_key=item.cart_key) }}"><button class="icon-button danger" type="submit" aria-label="Eliminar {{ item.producto.nombre }}" title="Eliminar"><i class="fas fa-trash-alt"></i></button></form>
+        </article>
+        {% endfor %}
+    </section>
+    <aside class="cart-summary-box">
+        <h2>Resumen</h2>
+        <div class="summary-total"><span>Subtotal</span><span>${{ "{:,.2f}".format(total) }}</span></div>
+        <p class="product-details">Envío y disponibilidad se confirman al completar el pedido.</p>
+        <a href="{{ url_for('comprar') }}" class="btn-primary btn-full-width">Continuar al pago</a>
+    </aside>
+</div>
+{% else %}
+<div class="empty-state"><h2>Tu carrito está vacío</h2><p>Encuentra tu siguiente par en el catálogo.</p><a class="btn-primary" href="{{ url_for('index') }}">Ver tenis</a></div>
+{% endif %}
+{% endblock %}

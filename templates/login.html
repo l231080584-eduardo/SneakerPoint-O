@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNEAKER POINT | Iniciar sesión</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='storefront.css') }}">
+</head>
+<body class="auth-body">
+    <div class="auth-container">
+        <span class="auth-role">Compra segura</span>
+        <h1>SNEAKER POINT</h1>
+        <h2>Inicia sesión</h2>
+        <p class="auth-brandline">Entra a tu cuenta para continuar con tu compra.</p>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="flash-message flash-{{ category }}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('login') }}" method="POST" class="standard-form">
+            <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+            <div class="form-group">
+                <label for="correo">Correo Electrónico:</label>
+                <input type="email" id="correo" name="correo" required>
+            </div>
+            <div class="form-group">
+                <label for="contraseña">Contraseña:</label>
+                <input type="password" id="contraseña" name="contraseña" minlength="8" maxlength="20" required>
+            </div>
+            <button type="submit" class="btn-primary btn-full-width">Entrar</button>
+        </form>
+        
+        <p class="switch-link">
+            ¿No tienes cuenta? <a href="{{ url_for('registro') }}">Regístrate</a><br>
+            <a href="{{ url_for('provider_login') }}">Acceso proveedor</a>
+        </p>
+    </div>
+</body>
+</html>

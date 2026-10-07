@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Historial de ventas{% endblock %}
+
+{% block content %}
+<div class="dashboard-heading"><div><p class="section-kicker">Administración</p><h1>Historial de ventas</h1><p>Pedidos y artículos comprados desde la tienda pública.</p></div><a href="{{ url_for('admin_dashboard') }}" class="btn-secondary">Dashboard</a></div>
+{% if pedidos %}
+<div class="order-list">
+{% for order in pedidos %}
+<article class="order-card">
+    <header class="order-card-header"><div><h2>Pedido #{{ order.id_pedido }} · {{ order.nombre }} {{ order.apellido }}</h2><div class="order-meta"><span>{{ order.correo }}</span><span>{{ order.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</span><span>{{ order.metodo_pago }}</span></div></div><span class="status-pill">{{ order.estado }}</span></header>
+    <div class="order-card-body"><ul class="order-lines">{% for item in order['items'] %}<li><span>{{ item.nombre }} · talla {{ item.talla }}<small>{{ item.marca }} · {{ item.cantidad }} par(es)</small></span><strong>${{ "{:,.2f}".format(item.total) }}</strong></li>{% endfor %}</ul>
+    <form method="POST" action="{{ url_for('admin_estado_venta', order_id=order.id_pedido) }}" class="order-controls"><div class="form-group"><label for="estado-{{ order.id_pedido }}">Estado</label><select id="estado-{{ order.id_pedido }}" name="estado">{% for state in ['pendiente', 'pagado', 'preparando', 'enviado', 'completado', 'cancelado'] %}<option value="{{ state }}" {% if order.estado == state %}selected{% endif %}>{{ state|capitalize }}</option>{% endfor %}</select></div><button class="btn-primary" type="submit" aria-label="Actualizar estado"><i class="fas fa-check"></i></button><strong class="sales-order-total">${{ "{:,.2f}".format(order.total) }}</strong></form></div>
+</article>
+{% endfor %}</div>
+{% else %}<div class="empty-state"><h2>Aún no hay ventas</h2><p>Los pedidos de los clientes aparecerán aquí.</p></div>{% endif %}
+{% endblock %}

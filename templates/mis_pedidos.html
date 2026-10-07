@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Mis compras{% endblock %}
+
+{% block content %}
+<div class="dashboard-heading"><div><p class="section-kicker">Tu cuenta</p><h1>Mis compras</h1><p>Consulta tus pedidos y su estado.</p></div><a href="{{ url_for('index') }}" class="btn-secondary">Volver al catálogo</a></div>
+{% if pedidos %}
+<div class="order-list">
+    {% for pedido in pedidos %}
+    <article class="order-card">
+        <header class="order-card-header"><div><h2>Pedido #{{ pedido.id_pedido }}</h2><div class="order-meta"><span>{{ pedido.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</span><span>{{ pedido.metodo_pago }}</span><span>${{ "{:,.2f}".format(pedido.total) }} MXN</span></div></div><span class="status-pill">{{ pedido.estado|replace('_', ' ') }}</span></header>
+        <div class="order-card-body"><ul class="order-lines">{% for item in pedido['productos'] %}<li><span>{{ item.nombre }} · talla {{ item.talla }}<small>{{ item.marca }} · {{ item.cantidad }} par(es)</small></span><strong>${{ "{:,.2f}".format(item.total) }}</strong></li>{% endfor %}</ul></div>
+    </article>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state"><h2>Aún no tienes compras</h2><p>Cuando completes un pedido, su estado aparecerá aquí.</p><a href="{{ url_for('index') }}" class="btn-primary">Explorar catálogo</a></div>
+{% endif %}
+{% endblock %}

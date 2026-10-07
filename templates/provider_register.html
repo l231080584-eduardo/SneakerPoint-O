@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNEAKER POINT | Registro proveedor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='storefront.css') }}">
+</head>
+<body class="auth-body">
+<main class="auth-container">
+    <span class="auth-role">Solicitud de acceso</span>
+    <h1>SNEAKER POINT</h1>
+    <h2>Registra tu negocio</h2>
+    <p class="auth-brandline">La cuenta se habilita después de la revisión del equipo.</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="flash-message flash-{{ category }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+    <form method="POST" class="standard-form">
+        <div class="form-group"><label for="razon_social">Negocio / razón social</label><input id="razon_social" name="razon_social" autocomplete="organization" required></div>
+        <div class="form-group"><label for="contacto">Persona de contacto</label><input id="contacto" name="contacto" autocomplete="name" required></div>
+        <div class="form-group"><label for="correo">Correo</label><input id="correo" name="correo" type="email" autocomplete="email" required></div>
+        <div class="form-group"><label for="telefono">Teléfono</label><input id="telefono" name="telefono" type="tel" autocomplete="tel" required></div>
+        <div class="form-group"><label for="localidad">Localidad (opcional)</label><input id="localidad" name="localidad" autocomplete="address-level2"></div>
+        <div class="form-group"><label for="contraseña">Contraseña</label><input id="contraseña" name="contraseña" type="password" autocomplete="new-password" minlength="8" maxlength="20" pattern="(?=.*\p{Lu})(?=.*\p{Ll})(?=.*\p{N})(?=.*[^\p{L}\p{N}\s]).{8,20}" title="Usa entre 8 y 20 caracteres, con mayúscula, minúscula, número y símbolo." required><small>Entre 8 y 20 caracteres, con mayúscula, minúscula, número y símbolo.</small></div>
+        <button class="btn-primary btn-full-width" type="submit">Enviar solicitud</button>
+    </form>
+    <p class="switch-link"><a href="{{ url_for('provider_login') }}">Ya tengo cuenta</a> · <a href="{{ url_for('index') }}">Volver a la tienda</a></p>
+</main>
+</body>
+</html>

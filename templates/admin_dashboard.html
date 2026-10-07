@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard administrador{% endblock %}
+
+{% block content %}
+<div class="dashboard-heading"><div><p class="section-kicker">Administración · Sneaker Point</p><h1>Panel general</h1><p>Catálogo, aliados y operación de ventas.</p></div><div class="dashboard-actions"><a href="{{ url_for('admin_productos') }}" class="btn-primary"><i class="fas fa-plus"></i> Gestionar catálogo</a><a href="{{ url_for('admin_ventas') }}" class="btn-secondary">Historial de ventas</a></div></div>
+
+<section class="metric-grid accessibility-metric-grid" aria-label="Resumen de accesibilidad">
+    <article class="metric-card accessibility-metric">
+        <div class="accessibility-metric-heading"><i class="fas fa-universal-access" aria-hidden="true"></i><span>Puntaje de accesibilidad</span></div>
+        <strong class="metric-value">94%</strong>
+        <p>Cumplimiento WCAG · valor demostrativo, sin auditoría automática conectada.</p>
+    </article>
+    {% if session.get('role') == 'admin' and not session.get('preview_user') %}
+    <article class="metric-card accessibility-metric">
+        <div class="accessibility-metric-heading"><i class="fas fa-truck" aria-hidden="true"></i><span>Proveedores activos</span></div>
+        <strong class="metric-value">{{ summary.active_providers }}</strong>
+        <a href="{{ url_for('admin_proveedores') }}">Administrar proveedores <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+    </article>
+    {% endif %}
+    <article class="metric-card accessibility-metric">
+        <div class="accessibility-metric-heading"><i class="fas fa-clipboard-check" aria-hidden="true"></i><span>Auditorías pendientes</span></div>
+        <strong class="metric-value">N/D</strong>
+        <p>No hay un módulo de auditorías registrado.</p>
+    </article>
+    <article class="metric-card accessibility-metric">
+        <div class="accessibility-metric-heading"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><span>Errores críticos detectados</span></div>
+        <strong class="metric-value">N/D</strong>
+        <p>No hay resultados de auditoría disponibles.</p>
+    </article>
+</section>
+
+<section class="admin-section" id="propuestas">
+    <div class="section-heading"><div><p class="section-kicker">Revisión editorial y de stock</p><h2>Productos enviados por proveedores</h2><p>Solo lo que publiques aquí será visible para compradores.</p></div></div>
+    {% if proposals %}
+    <div class="orders-table-wrap"><table class="orders-table"><thead><tr><th>Producto</th><th>Proveedor</th><th>Precio / stock</th><th>Enviado</th><th>Acciones</th></tr></thead><tbody>
+    {% for product in proposals %}
+    <tr><td><strong>{{ product.nombre }}</strong><br><small>{{ product.marca }} · {{ product.color }} · Talla {{ product.talla }}</small></td><td>{{ product.razon_social }}</td><td>${{ "{:,.2f}".format(product.precio) }} · {{ product.stock }} pares</td><td>{{ product.fecha_creacion.strftime('%d/%m/%Y') }}</td><td><div class="table-actions"><form method="POST" action="{{ url_for('admin_publicar_propuesta', proposal_id=product.id_producto_proveedor) }}"><button class="btn-primary compact-button" type="submit"><i class="fas fa-check"></i> Publicar</button></form><form method="POST" action="{{ url_for('admin_rechazar_propuesta', proposal_id=product.id_producto_proveedor) }}"><button class="btn-secondary compact-button" type="submit">Rechazar</button></form></div></td></tr>
+    {% endfor %}
+    </tbody></table></div>
+    {% else %}<div class="empty-state">No hay productos esperando revisión.</div>{% endif %}
+</section>
+
+<section class="wcag-map-section admin-section" aria-labelledby="wcag-map-title">
+    <div class="section-heading">
+        <div>
+            <p class="section-kicker">Unidad 2 · Accesibilidad web</p>
+            <h2 id="wcag-map-title">Principios WCAG</h2>
+            <p>Explora cada principio para consultar ejemplos y una lista de verificación.</p>
+        </div>
+    </div>
+    <div class="wcag-map" aria-label="Mapa conceptual de los principios de accesibilidad">
+        <svg class="wcag-map-lines" viewBox="0 0 1000 440" preserveAspectRatio="none" aria-hidden="true">
+            <line x1="500" y1="220" x2="170" y2="70"></line>
+            <line x1="500" y1="220" x2="830" y2="70"></line>
+            <line x1="500" y1="220" x2="170" y2="370"></line>
+            <line x1="500" y1="220" x2="830" y2="370"></line>
+            <line x1="500" y1="220" x2="500" y2="335"></line>
+        </svg>
+        <div class="wcag-map-center"><i class="fas fa-universal-access" aria-hidden="true"></i><span>Accesibilidad<br>Web &amp; WCAG</span></div>
+        <button class="wcag-node wcag-node-perceivable" type="button" data-wcag-principle="perceptible" aria-haspopup="dialog" aria-controls="wcag-principle-dialog">
+            <span class="wcag-node-emoji" aria-hidden="true">👁️</span><strong>Perceptible</strong><span>Texto alternativo · subtítulos · contraste</span>
+        </button>
+        <button class="wcag-node wcag-node-operable" type="button" data-wcag-principle="operable" aria-haspopup="dialog" aria-controls="wcag-principle-dialog">
+            <span class="wcag-node-emoji" aria-hidden="true">🖐️</span><strong>Operable</strong><span>Teclado · tiempo suficiente</span>
+        </button>
+        <button class="wcag-node wcag-node-understandable" type="button" data-wcag-principle="understandable" aria-haspopup="dialog" aria-controls="wcag-principle-dialog">
+            <span class="wcag-node-emoji" aria-hidden="true">📖</span><strong>Comprensible</strong><span>Texto claro · navegación predecible</span>
+        </button>
+        <button class="wcag-node wcag-node-robust" type="button" data-wcag-principle="robust" aria-haspopup="dialog" aria-controls="wcag-principle-dialog">
+            <span class="wcag-node-emoji" aria-hidden="true">⚙️</span><strong>Robusto</strong><span>Tecnologías de asistencia</span>
+        </button>
+        <button class="wcag-node wcag-node-inclusive" type="button" data-wcag-principle="inclusive" aria-haspopup="dialog" aria-controls="wcag-principle-dialog">
+            <span class="wcag-node-emoji" aria-hidden="true">🎨</span><strong>Diseño inclusivo</strong><span>Experiencia universal</span>
+        </button>
+    </div>
+</section>
+
+<dialog class="wcag-dialog" id="wcag-principle-dialog" aria-labelledby="wcag-dialog-title" aria-describedby="wcag-dialog-summary">
+    <div class="wcag-dialog-header">
+        <div><p class="section-kicker">Principios WCAG</p><h2 id="wcag-dialog-title"></h2></div>
+        <button class="icon-button" type="button" data-dialog-close aria-label="Cerrar explicación"><i class="fas fa-times" aria-hidden="true"></i></button>
+    </div>
+    <p id="wcag-dialog-summary"></p>
+    <div class="wcag-code-comparison">
+        <section><h3>Inaccesible</h3><pre><code id="wcag-inaccessible-code"></code></pre></section>
+        <section><h3>Accesible</h3><pre><code id="wcag-accessible-code"></code></pre></section>
+    </div>
+    <section class="wcag-checklist-section" aria-labelledby="wcag-checklist-title">
+        <h3 id="wcag-checklist-title">Lista de verificación</h3>
+        <ul id="wcag-checklist"></ul>
+    </section>
+</dialog>
+
+{% if session.get('role') == 'admin' and not session.get('preview_user') %}
+<section class="admin-section">
+    <div class="section-heading"><div><p class="section-kicker">Relación comercial interna</p><h2>Proveedores y su inventario</h2></div><a href="{{ url_for('admin_proveedores') }}">Administrar directorio</a></div>
+    {% if providers %}<div class="admin-provider-grid">
+    {% for provider in providers %}
+    <article class="admin-provider-card"><div class="provider-admin-meta"><h3>{{ provider.razon_social }}</h3><span class="status-pill">{% if provider.activo %}Activo{% else %}Pendiente / pausado{% endif %}</span></div><p>{{ provider.contacto or 'Sin contacto asignado' }}</p><p><a href="mailto:{{ provider.correo }}">{{ provider.correo }}</a> · {{ provider.telefono }}</p><p>{{ provider.localidad }}</p><div class="provider-models"><strong>Modelos enviados</strong><span>{{ provider.modelos or 'Aún no registra productos' }}</span></div></article>
+    {% endfor %}</div>{% else %}<div class="empty-state">El directorio de proveedores aparecerá aquí.</div>{% endif %}
+</section>
+{% endif %}
+
+<section class="admin-section">
+    <div class="section-heading"><div><p class="section-kicker">Actividad reciente</p><h2>Últimos pedidos</h2></div><a href="{{ url_for('admin_ventas') }}">Ver todos</a></div>
+    {% if recent_orders %}<div class="orders-table-wrap"><table class="orders-table"><thead><tr><th>Pedido</th><th>Cliente</th><th>Fecha</th><th>Estado</th><th>Total</th></tr></thead><tbody>{% for order in recent_orders %}<tr><td>#{{ order.id_pedido }}</td><td>{{ order.nombre }} {{ order.apellido }}</td><td>{{ order.fecha_creacion.strftime('%d/%m/%Y') }}</td><td><span class="status-pill">{{ order.estado }}</span></td><td>${{ "{:,.2f}".format(order.total) }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty-state">Todavía no hay pedidos.</div>{% endif %}
+</section>
+{% endblock %}

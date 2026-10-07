@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNEAKER POINT | {% block title %}{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='storefront.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+<header class="main-header">
+    <div class="header-content">
+        <button class="menu-toggle" type="button" aria-label="Abrir menú principal" aria-expanded="false" aria-controls="app-sidebar">
+            <span></span><span></span><span></span>
+        </button>
+        <a href="{{ url_for('index') }}" class="logo" aria-label="Sneaker Point, A11y Hub">
+            <span class="logo-wordmark">SNEAKER POINT</span>
+            <span class="logo-a11y-badge">A11Y HUB</span>
+        </a>
+        {% if session.get('role') == 'admin' %}
+        <form class="role-switcher" method="POST" action="{{ url_for('toggle_role_preview') }}" aria-label="Previsualización de roles; no modifica los permisos de administración">
+            <span>Vista de prueba: <strong>{{ 'Usuario' if session.get('preview_user') else 'Admin' }}</strong></span>
+            <button type="submit" class="role-switcher-button">{{ 'Volver a vista Admin' if session.get('preview_user') else 'Probar vista usuario' }}</button>
+        </form>
+        {% endif %}
+        <div class="a11y-widget">
+            <button class="a11y-widget-toggle" type="button" aria-expanded="false" aria-controls="a11y-controls">
+                <i class="fas fa-universal-access" aria-hidden="true"></i>
+                <span>Accesibilidad</span>
+            </button>
+            <section class="a11y-controls" id="a11y-controls" aria-label="Controles de accesibilidad" hidden>
+                <div class="a11y-text-controls" role="group" aria-label="Tamaño del texto">
+                    <span class="a11y-control-label">Tamaño del texto</span>
+                    <div class="a11y-button-row">
+                        <button type="button" data-font-step="-1" aria-label="Reducir tamaño del texto">A−</button>
+                        <button type="button" data-font-reset>Restablecer</button>
+                        <button type="button" data-font-step="1" aria-label="Aumentar tamaño del texto">A+</button>
+                    </div>
+                </div>
+                <label class="a11y-switch">
+                    <span>Alto contraste</span>
+                    <input type="checkbox" data-a11y-setting="highContrast">
+                    <span class="a11y-switch-track" aria-hidden="true"></span>
+                </label>
+                <label class="a11y-switch">
+                    <span>Tipografía legible</span>
+                    <input type="checkbox" data-a11y-setting="dyslexiaFont">
+                    <span class="a11y-switch-track" aria-hidden="true"></span>
+                </label>
+                <label class="a11y-switch">
+                    <span>Foco muy visible</span>
+                    <input type="checkbox" data-a11y-setting="focusHighlight">
+                    <span class="a11y-switch-track" aria-hidden="true"></span>
+                </label>
+                <span class="visually-hidden" data-a11y-status aria-live="polite"></span>
+            </section>
+        </div>
+        <div class="user-actions">
+            {% if session.get('role') == 'customer' %}
+                <a href="{{ url_for('carrito') }}" aria-label="Carrito"><i class="fas fa-shopping-bag" aria-hidden="true"></i><span class="cart-count">{{ session.get('cart', {}).values()|sum }}</span></a>
+                <a href="{{ url_for('logout') }}" aria-label="Cerrar sesión"><i class="fas fa-sign-out-alt" aria-hidden="true"></i></a>
+            {% elif session.get('role') in ['admin', 'provider'] %}
+                <a href="{{ url_for('logout') }}" aria-label="Cerrar sesión"><i class="fas fa-sign-out-alt" aria-hidden="true"></i></a>
+            {% else %}
+                <a href="{{ url_for('login') }}">Iniciar sesión</a>
+                <a class="btn-primary" href="{{ url_for('registro') }}">Regístrate</a>
+            {% endif %}
+        </div>
+    </div>
+</header>
+
+<aside class="app-sidebar" id="app-sidebar" aria-label="Navegación del sitio">
+    <nav>
+        <p class="sidebar-heading">Menú principal</p>
+        <ul class="sidebar-links">
+            {% if session.get('role') == 'admin' and not session.get('preview_user') %}
+                <li><a href="{{ url_for('admin_dashboard') }}"><i class="fas fa-chart-line" aria-hidden="true"></i> Panel de control</a></li>
+                <li><a href="{{ url_for('admin_productos') }}"><i class="fas fa-shoe-prints" aria-hidden="true"></i> Catálogo</a></li>
+                <li><a href="{{ url_for('admin_proveedores') }}"><i class="fas fa-truck" aria-hidden="true"></i> Gestión de proveedores</a></li>
+                <li><a href="{{ url_for('admin_ventas') }}"><i class="fas fa-receipt" aria-hidden="true"></i> Ventas</a></li>
+            {% elif session.get('role') == 'provider' %}
+                <li><a href="{{ url_for('provider_dashboard') }}"><i class="fas fa-box" aria-hidden="true"></i> Mis productos</a></li>
+                <li><a href="{{ url_for('index') }}"><i class="fas fa-store" aria-hidden="true"></i> Ver tienda</a></li>
+            {% else %}
+                <li><a href="{{ url_for('index') }}"><i class="fas fa-home" aria-hidden="true"></i> Inicio</a></li>
+                <li><a href="{{ url_for('index') }}#productos"><i class="fas fa-shoe-prints" aria-hidden="true"></i> Productos</a></li>
+                <li><a href="{{ url_for('provider_landing') }}"><i class="fas fa-truck" aria-hidden="true"></i> Vende con nosotros</a></li>
+                {% if session.get('role') == 'customer' %}
+                <li><a href="{{ url_for('mis_pedidos') }}"><i class="fas fa-receipt" aria-hidden="true"></i> Mis compras</a></li>
+                {% endif %}
+            {% endif %}
+        </ul>
+
+        <p class="sidebar-heading">Recursos WCAG</p>
+        <ul class="sidebar-links">
+            <li><a href="https://www.w3.org/WAI/fundamentals/accessibility-principles/" target="_blank" rel="noopener noreferrer"><i class="fas fa-universal-access" aria-hidden="true"></i> Principios</a></li>
+            <li><a href="https://www.w3.org/WAI/tips/" target="_blank" rel="noopener noreferrer"><i class="fas fa-book-open" aria-hidden="true"></i> Guía de contenido</a></li>
+            <li><a href="https://www.w3.org/WAI/test-evaluate/tools/" target="_blank" rel="noopener noreferrer"><i class="fas fa-toolbox" aria-hidden="true"></i> Herramientas</a></li>
+        </ul>
+    </nav>
+</aside>
+<button class="sidebar-backdrop" type="button" aria-label="Cerrar menú" tabindex="-1"></button>
+
+<div class="main-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+        <div class="flash-message flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endwith %}
+    <main id="main-content" tabindex="-1">{% block content %}{% endblock %}</main>
+</div>
+
+<footer class="main-footer">
+    <div class="footer-content">
+        <div class="footer-left">
+            <span class="logo-footer">SNEAKER POINT <span class="logo-footer-badge">A11Y HUB</span></span>
+            <p>Tenis para cada paso.</p>
+        </div>
+        <section class="footer-accessibility" aria-labelledby="footer-accessibility-title">
+            <h2 id="footer-accessibility-title">Compromiso de accesibilidad</h2>
+            <p>Diseñamos para una experiencia inclusiva y trabajamos para alinearnos con WCAG 2.1 AA.</p>
+            <a href="https://www.w3.org/WAI/standards-guidelines/wcag/" target="_blank" rel="noopener noreferrer">Conoce las pautas WCAG <i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+        </section>
+        <div class="footer-right">
+            <a href="{{ url_for('provider_landing') }}">Vende con nosotros</a>
+            <span>Atención local</span>
+        </div>
+    </div>
+</footer>
+<a class="admin-secret-access" data-admin-access href="{{ url_for('admin_login') }}" hidden>Acceso administrativo</a>
+<div class="toast-container" data-toast-container aria-live="polite" aria-atomic="false"></div>
+<script>
+    (() => {
+        const toastContainer = document.querySelector('[data-toast-container]');
+        window.showToast = (message, type = 'success') => {
+            const toast = document.createElement('div');
+            toast.className = `app-toast app-toast-${type}`;
+            toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+            const text = document.createElement('span');
+            text.textContent = message;
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'app-toast-close';
+            close.setAttribute('aria-label', 'Cerrar notificación');
+            close.textContent = '×';
+            close.addEventListener('click', () => toast.remove());
+            toast.append(text, close);
+            toastContainer.append(toast);
+            window.setTimeout(() => toast.remove(), 5000);
+        };
+        document.querySelectorAll('.flash-message').forEach((flash) => {
+            const type = flash.classList.contains('flash-error') ? 'error' : 'success';
+            window.showToast(flash.textContent.trim(), type);
+            flash.hidden = true;
+        });
+
+        const showDialog = (dialog, trigger) => {
+            if (!dialog || dialog.open) return;
+            dialog.returnFocusTarget = trigger;
+            dialog.showModal();
+            const firstField = dialog.querySelector('input:not([type="hidden"]), button:not([data-dialog-close])');
+            (firstField || dialog.querySelector('[data-dialog-close]')).focus();
+        };
+        document.querySelectorAll('[data-provider-dialog]').forEach((button) => {
+            button.addEventListener('click', () => showDialog(document.getElementById(button.dataset.providerDialog), button));
+        });
+        document.querySelectorAll('[data-dialog-close]').forEach((button) => {
+            button.addEventListener('click', () => button.closest('dialog').close());
+        });
+        document.querySelectorAll('dialog').forEach((dialog) => {
+            dialog.addEventListener('click', (event) => {
+                if (event.target === dialog) dialog.close();
+            });
+            dialog.addEventListener('close', () => {
+                if (dialog.returnFocusTarget && dialog.returnFocusTarget.isConnected) dialog.returnFocusTarget.focus();
+            });
+            dialog.addEventListener('keydown', (event) => {
+                if (event.key !== 'Tab') return;
+                const focusable = Array.from(dialog.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+                    .filter((element) => !element.hidden && element.getClientRects().length);
+                if (!focusable.length) return;
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            });
+        });
+
+        const wcagDialog = document.getElementById('wcag-principle-dialog');
+        if (wcagDialog) {
+            const principles = {
+                perceptible: {
+                    title: 'Perceptible',
+                    summary: 'La información y los componentes deben presentarse de maneras que las personas puedan percibir. Ofrece alternativas al contenido visual o auditivo y asegúrate de que el contraste permita distinguirlo.',
+                    inaccessible: '<img src="zapato.jpg">\n<p><span class="gris">Oferta especial</span></p>',
+                    accessible: '<img src="zapato.jpg" alt="Tenis deportivos rojos">\n<p class="alto-contraste">Oferta especial</p>',
+                    checklist: ['Las imágenes informativas tienen texto alternativo útil.', 'El audio y el video tienen alternativas como subtítulos.', 'El texto y los controles tienen contraste suficiente.']
+                },
+                operable: {
+                    title: 'Operable',
+                    summary: 'La interfaz debe poder usarse con distintos métodos de entrada. Las funciones, controles y navegación deben estar disponibles mediante teclado y ofrecer tiempo suficiente.',
+                    inaccessible: '<div onclick="comprar()">Comprar</div>\n<a href="#" tabindex="8">Continuar</a>',
+                    accessible: '<button type="button">Comprar</button>\n<a href="/carrito">Continuar</a>',
+                    checklist: ['Toda acción puede realizarse con teclado.', 'El foco es visible y sigue un orden lógico.', 'No hay límites de tiempo inesperados ni trampas de teclado.']
+                },
+                understandable: {
+                    title: 'Comprensible',
+                    summary: 'La información y el funcionamiento deben ser claros y predecibles. Usa lenguaje comprensible, etiquetas útiles y patrones consistentes al navegar o completar formularios.',
+                    inaccessible: '<input placeholder="Dato">\n<button>Enviar</button>',
+                    accessible: '<label for="email">Correo electrónico</label>\n<input id="email" type="email" required>\n<button>Enviar pedido</button>',
+                    checklist: ['Los campos tienen instrucciones y etiquetas claras.', 'Los errores indican cómo corregir el problema.', 'La navegación y los controles mantienen patrones consistentes.']
+                },
+                robust: {
+                    title: 'Robusto',
+                    summary: 'El contenido debe funcionar de manera fiable con navegadores y tecnologías de asistencia. Utiliza HTML semántico válido y expón correctamente el nombre, rol y estado de cada control.',
+                    inaccessible: '<div class="boton" onclick="guardar()">Guardar</div>',
+                    accessible: '<button type="button" aria-label="Guardar cambios">Guardar</button>',
+                    checklist: ['Los componentes usan elementos semánticos apropiados.', 'Los controles exponen nombre, rol y estado.', 'El contenido puede interpretarse con tecnologías de asistencia.']
+                },
+                inclusive: {
+                    title: 'Diseño inclusivo',
+                    summary: 'El diseño inclusivo considera distintas capacidades, contextos y preferencias desde el inicio para crear experiencias flexibles y útiles para más personas.',
+                    inaccessible: '<span style="color:#aaa">Continuar</span>\n<button style="width:24px">…</button>',
+                    accessible: '<button class="accion-principal">Continuar</button>\n<button aria-label="Más opciones">Más opciones</button>',
+                    checklist: ['Los controles son claros, distinguibles y tienen un tamaño cómodo.', 'La experiencia funciona en distintos tamaños y modos de interacción.', 'La información no depende únicamente del color o de un solo sentido.']
+                }
+            };
+            const title = wcagDialog.querySelector('#wcag-dialog-title');
+            const summary = wcagDialog.querySelector('#wcag-dialog-summary');
+            const inaccessibleCode = wcagDialog.querySelector('#wcag-inaccessible-code');
+            const accessibleCode = wcagDialog.querySelector('#wcag-accessible-code');
+            const checklist = wcagDialog.querySelector('#wcag-checklist');
+            document.querySelectorAll('[data-wcag-principle]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const principle = principles[button.dataset.wcagPrinciple];
+                    if (!principle) return;
+                    title.textContent = principle.title;
+                    summary.textContent = principle.summary;
+                    inaccessibleCode.textContent = principle.inaccessible;
+                    accessibleCode.textContent = principle.accessible;
+                    checklist.replaceChildren(...principle.checklist.map((item, index) => {
+                        const listItem = document.createElement('li');
+                        const label = document.createElement('label');
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.id = `wcag-check-${button.dataset.wcagPrinciple}-${index}`;
+                        label.htmlFor = checkbox.id;
+                        label.append(checkbox, document.createTextNode(` ${item}`));
+                        listItem.append(label);
+                        return listItem;
+                    }));
+                    showDialog(wcagDialog, button);
+                });
+            });
+        }
+
+        const providerDirectory = document.querySelector('.provider-directory');
+        if (providerDirectory) {
+            const content = providerDirectory.querySelector('[data-provider-content]');
+            const skeleton = providerDirectory.querySelector('[data-provider-skeleton]');
+            const table = providerDirectory.querySelector('[data-provider-table]');
+            const grid = providerDirectory.querySelector('[data-provider-grid]');
+            const emptyState = providerDirectory.querySelector('[data-provider-empty]');
+            const count = providerDirectory.querySelector('[data-provider-count]');
+            const search = providerDirectory.querySelector('#provider-search-input');
+            const viewButtons = providerDirectory.querySelectorAll('[data-provider-view]');
+            let activeView = 'table';
+            let filterToastTimer;
+            let loadTimer;
+
+            const normalize = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
+            const applySearch = () => {
+                const query = normalize(search.value.trim());
+                const rows = providerDirectory.querySelectorAll('[data-provider-table] [data-provider-item]');
+                let visible = 0;
+                rows.forEach((row) => {
+                    row.hidden = !normalize(row.dataset.search || '').includes(query);
+                    if (!row.hidden) visible += 1;
+                });
+                providerDirectory.querySelectorAll('[data-provider-grid] [data-provider-item]').forEach((card) => {
+                    card.hidden = !normalize(card.dataset.search || '').includes(query);
+                });
+                count.textContent = `${visible} de ${rows.length} proveedores`;
+                emptyState.hidden = visible !== 0;
+            };
+            const setView = (view) => {
+                activeView = view;
+                table.hidden = view !== 'table';
+                grid.hidden = view !== 'grid';
+                viewButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.providerView === view)));
+                applySearch();
+            };
+            const loadWithSkeleton = (view) => {
+                window.clearTimeout(loadTimer);
+                viewButtons.forEach((button) => { button.disabled = true; });
+                content.hidden = true;
+                content.setAttribute('aria-busy', 'true');
+                skeleton.hidden = false;
+                loadTimer = window.setTimeout(() => {
+                    setView(view);
+                    skeleton.hidden = true;
+                    content.hidden = false;
+                    content.setAttribute('aria-busy', 'false');
+                    viewButtons.forEach((button) => { button.disabled = false; });
+                }, 1000);
+            };
+
+            search.addEventListener('input', () => {
+                applySearch();
+                window.clearTimeout(filterToastTimer);
+                filterToastTimer = window.setTimeout(() => {
+                    if (search.value.trim()) window.showToast('Filtro de proveedores aplicado.');
+                }, 700);
+            });
+            viewButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    if (button.dataset.providerView === activeView) return;
+                    loadWithSkeleton(button.dataset.providerView);
+                });
+            });
+            providerDirectory.querySelector('[data-provider-export]').addEventListener('click', () => {
+                const fields = ['Negocio', 'Contacto', 'Correo', 'Teléfono', 'Localidad', 'Estado'];
+                const values = Array.from(providerDirectory.querySelectorAll('[data-provider-table] [data-provider-item]'))
+                    .filter((row) => !row.hidden)
+                    .map((row) => [row.dataset.csvName, row.dataset.csvContact, row.dataset.csvEmail, row.dataset.csvPhone, row.dataset.csvLocation, row.dataset.csvStatus]);
+                const escapeCsvValue = (value) => {
+                    const safeValue = /^[\t\r ]*[=+\-@]/.test(value) ? `'${value}` : value;
+                    return `"${safeValue.replace(/"/g, '""')}"`;
+                };
+                const csv = [fields, ...values].map((record) => record.map(escapeCsvValue).join(',')).join('\r\n');
+                const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'proveedores.csv';
+                document.body.append(link);
+                link.click();
+                link.remove();
+                window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+                window.showToast('Lista exportada a CSV.');
+            });
+            providerDirectory.querySelectorAll('[data-provider-edit-form], [data-provider-manage-form]').forEach((form) => {
+                form.addEventListener('submit', () => {
+                    window.showToast(form.matches('[data-provider-edit-form]') ? 'Guardando datos del proveedor…' : 'Actualizando acceso del proveedor…');
+                });
+            });
+            applySearch();
+            loadWithSkeleton(activeView);
+        }
+
+        const a11yToggle = document.querySelector('.a11y-widget-toggle');
+        const a11yControls = document.getElementById('a11y-controls');
+        const a11yStatus = document.querySelector('[data-a11y-status]');
+        const fontScaleKey = 'sneakerpoint.a11y.fontScale';
+        const preferencesKey = 'sneakerpoint.a11y.preferences';
+        const defaultPreferences = { highContrast: false, dyslexiaFont: false, focusHighlight: false };
+        const supportedScales = [90, 100, 110, 120];
+        let preferences = { ...defaultPreferences };
+        let fontScale = 100;
+
+        const readPreferences = () => {
+            try {
+                const savedPreferences = JSON.parse(localStorage.getItem(preferencesKey) || '{}');
+                if (savedPreferences && typeof savedPreferences === 'object' && !Array.isArray(savedPreferences)) {
+                    Object.keys(defaultPreferences).forEach((key) => {
+                        preferences[key] = savedPreferences[key] === true;
+                    });
+                }
+                const savedScale = Number(localStorage.getItem(fontScaleKey));
+                if (supportedScales.includes(savedScale)) fontScale = savedScale;
+            } catch (error) {
+                console.warn('No fue posible leer las preferencias de accesibilidad.', error);
+            }
+        };
+
+        const applyPreferences = () => {
+            document.documentElement.style.setProperty('--a11y-font-scale', `${fontScale}%`);
+            document.body.classList.toggle('high-contrast', preferences.highContrast);
+            document.body.classList.toggle('dyslexia-font', preferences.dyslexiaFont);
+            document.body.classList.toggle('focus-highlight', preferences.focusHighlight);
+            document.querySelectorAll('[data-a11y-setting]').forEach((control) => {
+                control.checked = preferences[control.dataset.a11ySetting] === true;
+            });
+        };
+
+        const savePreferences = () => {
+            try {
+                localStorage.setItem(preferencesKey, JSON.stringify(preferences));
+                localStorage.setItem(fontScaleKey, String(fontScale));
+            } catch (error) {
+                console.warn('No fue posible guardar las preferencias de accesibilidad.', error);
+                a11yStatus.textContent = 'El navegador no permitió guardar tus preferencias.';
+            }
+        };
+
+        readPreferences();
+        applyPreferences();
+
+        a11yToggle.addEventListener('click', () => {
+            const isExpanded = a11yToggle.getAttribute('aria-expanded') === 'true';
+            a11yToggle.setAttribute('aria-expanded', String(!isExpanded));
+            a11yControls.hidden = isExpanded;
+            if (!isExpanded) a11yControls.querySelector('button').focus();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && a11yToggle.getAttribute('aria-expanded') === 'true') {
+                a11yToggle.setAttribute('aria-expanded', 'false');
+                a11yControls.hidden = true;
+                a11yToggle.focus();
+            }
+        });
+        document.querySelectorAll('[data-font-step]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const currentIndex = supportedScales.indexOf(fontScale);
+                const nextIndex = Math.min(supportedScales.length - 1, Math.max(0, currentIndex + Number(button.dataset.fontStep)));
+                fontScale = supportedScales[nextIndex];
+                applyPreferences();
+                savePreferences();
+                a11yStatus.textContent = `Tamaño del texto: ${fontScale} por ciento.`;
+            });
+        });
+        document.querySelector('[data-font-reset]').addEventListener('click', () => {
+            fontScale = 100;
+            applyPreferences();
+            savePreferences();
+            a11yStatus.textContent = 'Tamaño del texto restablecido.';
+        });
+        document.querySelectorAll('[data-a11y-setting]').forEach((control) => {
+            control.addEventListener('change', () => {
+                preferences[control.dataset.a11ySetting] = control.checked;
+                applyPreferences();
+                savePreferences();
+                a11yStatus.textContent = `${control.closest('.a11y-switch').querySelector('span').textContent}: ${control.checked ? 'activado' : 'desactivado'}.`;
+            });
+        });
+
+        const menuButton = document.querySelector('.menu-toggle');
+        const sidebar = document.getElementById('app-sidebar');
+        const backdrop = document.querySelector('.sidebar-backdrop');
+        const sidebarLinks = sidebar.querySelectorAll('a');
+
+        const setMenuOpen = (open) => {
+            menuButton.setAttribute('aria-expanded', String(open));
+            menuButton.setAttribute('aria-label', open ? 'Cerrar menú principal' : 'Abrir menú principal');
+            sidebar.classList.toggle('is-open', open);
+            backdrop.classList.toggle('is-visible', open);
+            document.body.classList.toggle('sidebar-open', open);
+            if (open) {
+                sidebarLinks[0].focus();
+            } else {
+                menuButton.focus();
+            }
+        };
+
+        menuButton.addEventListener('click', () => {
+            setMenuOpen(menuButton.getAttribute('aria-expanded') !== 'true');
+        });
+        backdrop.addEventListener('click', () => setMenuOpen(false));
+        sidebarLinks.forEach((link) => link.addEventListener('click', () => setMenuOpen(false)));
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && menuButton.getAttribute('aria-expanded') === 'true') {
+                setMenuOpen(false);
+                return;
+            }
+            if (event.key === 'Tab' && menuButton.getAttribute('aria-expanded') === 'true') {
+                const firstLink = sidebarLinks[0];
+                const lastLink = sidebarLinks[sidebarLinks.length - 1];
+                if (event.shiftKey && document.activeElement === firstLink) {
+                    event.preventDefault();
+                    lastLink.focus();
+                } else if (!event.shiftKey && document.activeElement === lastLink) {
+                    event.preventDefault();
+                    firstLink.focus();
+                }
+            }
+        });
+
+        const secret = 'sneakeradmin';
+        const accessLink = document.querySelector('[data-admin-access]');
+        let typed = '';
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key.length !== 1 || event.ctrlKey || event.altKey || event.metaKey) return;
+            if (event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
+            typed = (typed + event.key.toLowerCase()).slice(-secret.length);
+            if (typed === secret) {
+                accessLink.hidden = false;
+                accessLink.focus();
+            }
+        });
+    })();
+</script>
+</body>
+</html>

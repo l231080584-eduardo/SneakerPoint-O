@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Portal proveedor{% endblock %}
+
+{% block content %}
+<div class="dashboard-heading"><div><p class="section-kicker">Portal privado · {{ session.get('nombre_proveedor') }}</p><h1>Mis productos</h1><p>Administra tus modelos. Cada cambio vuelve a revisión administrativa antes de aparecer en tienda.</p></div></div>
+<div class="provider-workspace">
+    <form action="{{ url_for('provider_product_create') }}" method="POST" class="standard-form provider-create-form"><h2>Agregar producto</h2>
+        <div class="form-group"><label for="nombre">Modelo</label><input id="nombre" name="nombre" required></div>
+        <div class="form-group"><label for="marca">Marca</label><input id="marca" name="marca" required></div>
+        <div class="form-group"><label for="descripcion">Descripción</label><textarea id="descripcion" name="descripcion"></textarea></div>
+        <div class="form-row"><div class="form-group"><label for="precio">Precio</label><input id="precio" name="precio" type="number" min="0" step="0.01" required></div><div class="form-group"><label for="stock">Existencias</label><input id="stock" name="stock" type="number" min="0" required></div></div>
+        <div class="form-row"><div class="form-group"><label for="color">Color</label><input id="color" name="color"></div><div class="form-group"><label for="talla">Talla</label><input id="talla" name="talla"></div></div>
+        <div class="form-group"><label for="imagen_url">Imagen (URL)</label><input id="imagen_url" name="imagen_url" type="url" placeholder="https://"></div>
+        <button class="btn-primary btn-full-width" type="submit">Enviar a revisión</button>
+    </form>
+    <section><div class="section-heading"><div><p class="section-kicker">Inventario privado</p><h2>Tu lista de productos</h2></div></div>
+        {% if products %}<div class="provider-products">
+        {% for product in products %}
+        <article class="provider-product-card">
+            <div class="provider-product-heading"><div><h3>{{ product.nombre }}</h3><p>{{ product.marca }} · {{ product.color }} · talla {{ product.talla }}</p></div><span class="status-pill status-{{ product.estado }}">{{ product.estado }}</span></div>
+            <form method="POST" action="{{ url_for('provider_product_edit', product_id=product.id_producto_proveedor) }}" class="provider-product-edit">
+                <div class="form-row"><div class="form-group"><label>Modelo</label><input name="nombre" value="{{ product.nombre }}" required></div><div class="form-group"><label>Marca</label><input name="marca" value="{{ product.marca }}" required></div></div>
+                <div class="form-row"><div class="form-group"><label>Precio</label><input name="precio" type="number" min="0" step="0.01" value="{{ product.precio }}" required></div><div class="form-group"><label>Stock</label><input name="stock" type="number" min="0" value="{{ product.stock }}" required></div><div class="form-group"><label>Talla</label><input name="talla" value="{{ product.talla }}"></div></div>
+                <div class="form-row"><div class="form-group"><label>Color</label><input name="color" value="{{ product.color }}"></div><div class="form-group"><label>Imagen URL</label><input name="imagen_url" value="{{ product.imagen_url }}"></div></div>
+                <div class="form-group"><label>Descripción</label><textarea name="descripcion">{{ product.descripcion }}</textarea></div>
+                <div class="row-actions"><button class="btn-secondary compact-button" type="submit"><i class="fas fa-save"></i> Guardar y reenviar</button></div>
+            </form>
+            <form method="POST" action="{{ url_for('provider_product_delete', product_id=product.id_producto_proveedor) }}" onsubmit="return confirm('¿Eliminar este producto de tu lista?')"><button class="icon-button danger" type="submit" title="Eliminar"><i class="fas fa-trash-alt"></i></button></form>
+        </article>
+        {% endfor %}</div>{% else %}<div class="empty-state">Todavía no has agregado productos.</div>{% endif %}
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Proveedores | Administración{% endblock %}
+
+{% block content %}
+<div class="dashboard-heading">
+    <div><p class="section-kicker">Información interna</p><h1>Proveedores</h1><p>Administra contactos, accesos y propuestas de producto.</p></div>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn-secondary">Dashboard</a>
+</div>
+
+<div class="provider-layout admin-provider-layout">
+    <form action="{{ url_for('admin_proveedores') }}" method="POST" class="standard-form">
+        <h2>Agregar proveedor</h2>
+        <div class="form-group"><label for="razon_social">Negocio / razón social</label><input id="razon_social" name="razon_social" required></div>
+        <div class="form-group"><label for="contacto">Contacto</label><input id="contacto" name="contacto"></div>
+        <div class="form-group"><label for="correo">Correo</label><input id="correo" name="correo" type="email" required></div>
+        <div class="form-group"><label for="telefono">Teléfono</label><input id="telefono" name="telefono" type="tel"></div>
+        <div class="form-group"><label for="localidad">Localidad</label><input id="localidad" name="localidad"></div>
+        <div class="form-group"><label for="contraseña">Contraseña inicial</label><input id="contraseña" name="contraseña" type="password" minlength="8" maxlength="20" pattern="(?=.*\p{Lu})(?=.*\p{Ll})(?=.*\p{N})(?=.*[^\p{L}\p{N}\s]).{8,20}" title="Usa entre 8 y 20 caracteres, con mayúscula, minúscula, número y símbolo." autocomplete="new-password" required><small>Entre 8 y 20 caracteres, con mayúscula, minúscula, número y símbolo.</small></div>
+        <button type="submit" class="btn-primary btn-full-width">Agregar al directorio</button>
+    </form>
+
+    <section class="provider-directory" aria-labelledby="provider-directory-title">
+        <div class="section-heading provider-directory-heading">
+            <div><p class="section-kicker">Directorio privado</p><h2 id="provider-directory-title">Contactos registrados</h2></div>
+        </div>
+        {% if proveedores %}
+        <div class="provider-directory-toolbar">
+            <div class="provider-search">
+                <label for="provider-search-input">Buscar por negocio, contacto, correo, teléfono, localidad o estado</label>
+                <input id="provider-search-input" type="search" placeholder="Escribe para filtrar..." autocomplete="off">
+            </div>
+            <div class="provider-directory-actions">
+                <div class="provider-view-toggle" role="group" aria-label="Cambiar vista de proveedores">
+                    <button type="button" data-provider-view="table" aria-pressed="true"><i class="fas fa-table" aria-hidden="true"></i> Vista de tabla</button>
+                    <button type="button" data-provider-view="grid" aria-pressed="false"><i class="fas fa-grip" aria-hidden="true"></i> Vista de tarjetas</button>
+                </div>
+                <button class="btn-secondary provider-export-button" type="button" data-provider-export><i class="fas fa-download" aria-hidden="true"></i> Exportar CSV</button>
+            </div>
+        </div>
+        <p class="provider-result-count" data-provider-count role="status" aria-live="polite"></p>
+        <div class="provider-skeleton" data-provider-skeleton aria-hidden="true" hidden>
+            <span></span><span></span><span></span>
+        </div>
+        <div class="provider-directory-content" data-provider-content aria-busy="false">
+            <div class="orders-table-wrap provider-table-view" data-provider-table>
+                <table class="orders-table">
+                    <caption class="visually-hidden">Directorio de proveedores</caption>
+                    <thead><tr><th scope="col">Negocio</th><th scope="col">Contacto</th><th scope="col">Correo</th><th scope="col">Localidad</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
+                    <tbody>
+                    {% for provider in proveedores %}
+                    {% set status_label = 'Activo' if provider.activo else 'Pendiente / pausado' %}
+                    <tr data-provider-item data-search="{{ provider.razon_social }} {{ provider.contacto or '' }} {{ provider.correo }} {{ provider.telefono or '' }} {{ provider.localidad or '' }} {{ status_label }}" data-csv-name="{{ provider.razon_social }}" data-csv-contact="{{ provider.contacto or '' }}" data-csv-email="{{ provider.correo }}" data-csv-phone="{{ provider.telefono or '' }}" data-csv-location="{{ provider.localidad or '' }}" data-csv-status="{{ status_label }}">
+                        <th scope="row">{{ provider.razon_social }}</th>
+                        <td>{{ provider.contacto or 'Sin contacto' }}{% if provider.telefono %}<br><small>{{ provider.telefono }}</small>{% endif %}</td>
+                        <td><a href="mailto:{{ provider.correo }}">{{ provider.correo }}</a></td>
+                        <td>{{ provider.localidad or 'No indicada' }}</td>
+                        <td><span class="status-pill">{{ status_label }}</span></td>
+                        <td><div class="table-actions"><button class="btn-secondary compact-button" type="button" data-provider-dialog="provider-edit-{{ provider.id_proveedor }}">Editar</button><button class="btn-primary compact-button" type="button" data-provider-dialog="provider-manage-{{ provider.id_proveedor }}">Gestionar</button></div></td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="provider-card-grid" data-provider-grid hidden>
+                {% for provider in proveedores %}
+                {% set status_label = 'Activo' if provider.activo else 'Pendiente / pausado' %}
+                <article class="provider-directory-card" data-provider-item data-search="{{ provider.razon_social }} {{ provider.contacto or '' }} {{ provider.correo }} {{ provider.telefono or '' }} {{ provider.localidad or '' }} {{ status_label }}">
+                    <div class="provider-directory-card-heading"><h3>{{ provider.razon_social }}</h3><span class="status-pill">{{ status_label }}</span></div>
+                    <dl>
+                        <div><dt>Contacto</dt><dd>{{ provider.contacto or 'Sin contacto' }}</dd></div>
+                        <div><dt>Correo</dt><dd><a href="mailto:{{ provider.correo }}">{{ provider.correo }}</a></dd></div>
+                        <div><dt>Teléfono</dt><dd>{{ provider.telefono or 'No indicado' }}</dd></div>
+                        <div><dt>Localidad</dt><dd>{{ provider.localidad or 'No indicada' }}</dd></div>
+                        <div><dt>Propuestas</dt><dd>{{ provider.total_productos }}</dd></div>
+                    </dl>
+                    <div class="table-actions"><button class="btn-secondary compact-button" type="button" data-provider-dialog="provider-edit-{{ provider.id_proveedor }}">Editar</button><button class="btn-primary compact-button" type="button" data-provider-dialog="provider-manage-{{ provider.id_proveedor }}">Gestionar</button></div>
+                </article>
+                {% endfor %}
+            </div>
+            <p class="empty-state provider-no-results" data-provider-empty hidden>No hay proveedores que coincidan con la búsqueda.</p>
+        </div>
+
+        {% for provider in proveedores %}
+        {% set status_label = 'Activo' if provider.activo else 'Pendiente / pausado' %}
+        <dialog class="provider-dialog" id="provider-edit-{{ provider.id_proveedor }}" aria-labelledby="provider-edit-title-{{ provider.id_proveedor }}">
+            <div class="provider-dialog-heading"><div><p class="section-kicker">Directorio privado</p><h2 id="provider-edit-title-{{ provider.id_proveedor }}">Editar proveedor</h2></div><button class="icon-button" type="button" data-dialog-close aria-label="Cerrar edición"><i class="fas fa-times" aria-hidden="true"></i></button></div>
+            <form method="POST" action="{{ url_for('admin_proveedor_editar', provider_id=provider.id_proveedor) }}" data-provider-edit-form>
+                <div class="form-row">
+                    <div class="form-group"><label for="edit-name-{{ provider.id_proveedor }}">Negocio / razón social</label><input id="edit-name-{{ provider.id_proveedor }}" name="razon_social" value="{{ provider.razon_social }}" required></div>
+                    <div class="form-group"><label for="edit-contact-{{ provider.id_proveedor }}">Contacto</label><input id="edit-contact-{{ provider.id_proveedor }}" name="contacto" value="{{ provider.contacto or '' }}"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label for="edit-email-{{ provider.id_proveedor }}">Correo</label><input id="edit-email-{{ provider.id_proveedor }}" name="correo" type="email" value="{{ provider.correo }}" required></div>
+                    <div class="form-group"><label for="edit-phone-{{ provider.id_proveedor }}">Teléfono</label><input id="edit-phone-{{ provider.id_proveedor }}" name="telefono" type="tel" value="{{ provider.telefono or '' }}"></div>
+                    <div class="form-group"><label for="edit-location-{{ provider.id_proveedor }}">Localidad</label><input id="edit-location-{{ provider.id_proveedor }}" name="localidad" value="{{ provider.localidad or '' }}"></div>
+                </div>
+                <div class="form-group"><label for="edit-password-{{ provider.id_proveedor }}">Restablecer contraseña (opcional)</label><input id="edit-password-{{ provider.id_proveedor }}" name="contraseña" type="password" minlength="8" maxlength="20" pattern="(?=.*\p{Lu})(?=.*\p{Ll})(?=.*\p{N})(?=.*[^\p{L}\p{N}\s]).{8,20}" title="Usa entre 8 y 20 caracteres, con mayúscula, minúscula, número y símbolo." autocomplete="new-password"><small>Déjalo vacío para conservar la contraseña actual.</small></div>
+                <div class="provider-dialog-actions"><button class="btn-secondary" type="button" data-dialog-close>Cancelar</button><button class="btn-primary" type="submit"><i class="fas fa-save" aria-hidden="true"></i> Guardar cambios</button></div>
+            </form>
+        </dialog>
+        <dialog class="provider-dialog provider-manage-dialog" id="provider-manage-{{ provider.id_proveedor }}" aria-labelledby="provider-manage-title-{{ provider.id_proveedor }}">
+            <div class="provider-dialog-heading"><div><p class="section-kicker">Gestión de acceso</p><h2 id="provider-manage-title-{{ provider.id_proveedor }}">{{ provider.razon_social }}</h2></div><button class="icon-button" type="button" data-dialog-close aria-label="Cerrar gestión"><i class="fas fa-times" aria-hidden="true"></i></button></div>
+            <dl class="provider-manage-details">
+                <div><dt>Contacto</dt><dd>{{ provider.contacto or 'Sin contacto asignado' }}</dd></div>
+                <div><dt>Correo</dt><dd><a href="mailto:{{ provider.correo }}">{{ provider.correo }}</a></dd></div>
+                <div><dt>Teléfono</dt><dd>{{ provider.telefono or 'No indicado' }}</dd></div>
+                <div><dt>Localidad</dt><dd>{{ provider.localidad or 'No indicada' }}</dd></div>
+                <div><dt>Propuestas registradas</dt><dd>{{ provider.total_productos }}</dd></div>
+                <div><dt>Estado</dt><dd>{{ status_label }}</dd></div>
+            </dl>
+            <form method="POST" action="{{ url_for('admin_proveedor_estado', provider_id=provider.id_proveedor) }}" class="provider-dialog-actions" data-provider-manage-form>
+                <input type="hidden" name="activo" value="{{ 'false' if provider.activo else 'true' }}">
+                <button class="btn-primary" type="submit">{% if provider.activo %}Pausar acceso{% else %}Habilitar acceso{% endif %}</button>
+            </form>
+        </dialog>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">No hay proveedores registrados.</div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

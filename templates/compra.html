@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Finalizar compra{% endblock %}
+
+{% block content %}
+<section class="checkout-form-container">
+    <p class="section-kicker">Un paso más</p>
+    <h1 class="page-title">Entrega y pago</h1>
+    <div class="checkout-layout">
+        <form action="{{ url_for('comprar') }}" method="POST" class="standard-form">
+            <h2>Contacto</h2>
+            <div class="form-row">
+                <div class="form-group"><label for="nombre">Nombre</label><input id="nombre" name="nombre" value="{{ customer.nombre if customer else '' }}" required></div>
+                <div class="form-group"><label for="apellido">Apellido</label><input id="apellido" name="apellido" value="{{ customer.apellido if customer else '' }}" required></div>
+            </div>
+            <div class="form-group"><label for="correo">Correo</label><input id="correo" name="correo" type="email" value="{{ customer.correo if customer else '' }}" required></div>
+            <div class="form-group"><label for="telefono">Teléfono</label><input id="telefono" name="telefono" type="tel" value="{{ customer.telefono if customer else '' }}" required></div>
+            <h2>Dirección de entrega</h2>
+            <div class="form-group"><label for="calle">Calle</label><input id="calle" name="calle" autocomplete="address-line1" required></div>
+            <div class="form-row">
+                <div class="form-group"><label for="num_ext">Número exterior</label><input id="num_ext" name="num_ext" required></div>
+                <div class="form-group"><label for="num_int">Interior (opcional)</label><input id="num_int" name="num_int"></div>
+            </div>
+            <div class="form-group"><label for="CP">Código postal</label><input id="CP" name="CP" autocomplete="postal-code" required></div>
+            <h2>Método de pago</h2>
+            <div class="form-group"><label for="metodo_pago">Selecciona una opción</label><select id="metodo_pago" name="metodo_pago" required><option value="" disabled selected>Selecciona</option><option value="Transferencia">Transferencia bancaria</option><option value="Efectivo">Efectivo al recibir</option></select></div>
+            <p class="product-details">El pago se coordina al confirmar el pedido. No solicitamos números de tarjeta en este formulario.</p>
+            <button type="submit" class="btn-primary btn-full-width">Confirmar pedido</button>
+        </form>
+        <aside class="cart-summary-box">
+            <h2>Tu pedido</h2>
+            {% for item in items %}
+            <div class="checkout-line"><span>{{ item.producto.nombre }} · {{ item.talla_seleccionada }} × {{ item.cantidad }}</span><strong>${{ "{:,.2f}".format(item.subtotal) }}</strong></div>
+            {% endfor %}
+            <div class="summary-total"><span>Total</span><span>${{ "{:,.2f}".format(items|sum(attribute='subtotal')) }}</span></div>
+        </aside>
+    </div>
+</section>
+{% endblock %}

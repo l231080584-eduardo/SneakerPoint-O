@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Proveedores{% endblock %}
+
+{% block content %}
+<section class="provider-hero">
+    <div class="provider-hero-copy">
+        <p class="section-kicker">Comunidad Sneaker Point</p>
+        <h1>Haz llegar tus tenis a más personas.</h1>
+        <p>Publica tu inventario en un espacio privado. Nuestro equipo revisa cada modelo y decide qué productos incorporar al catálogo oficial.</p>
+        <div class="provider-hero-actions">
+            <a class="btn-primary" href="{{ url_for('provider_register') }}">Solicitar cuenta de proveedor</a>
+            <a class="btn-secondary" href="{{ url_for('provider_login') }}">Ya tengo cuenta</a>
+        </div>
+    </div>
+    <div class="provider-process" aria-label="Proceso de publicación">
+        <div><span>01</span><strong>Envías tus modelos</strong><small>Precio, tallas y existencias.</small></div>
+        <div><span>02</span><strong>Revisión interna</strong><small>Administración valida cada publicación.</small></div>
+        <div><span>03</span><strong>Venta en catálogo</strong><small>Los clientes compran a Sneaker Point.</small></div>
+    </div>
+</section>
+{% endblock %}
