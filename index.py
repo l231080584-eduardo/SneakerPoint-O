@@ -6,11 +6,12 @@ import logging
 import math
 import os
 import re
+import unicodedata
 from urllib.parse import urlsplit
 
 import psycopg2
 from dotenv import load_dotenv
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -481,6 +482,262 @@ def logout():
 @app.route("/search")
 def search_products():
     return redirect(url_for("index", q=request.args.get("q", "")))
+
+
+_CHATBOT_STOP_WORDS = {
+    "a", "al", "algo", "algun", "alguna", "algunas", "algunos", "algun", "ayuda",
+    "busca", "busco", "buscar", "buscando", "catalogo", "consulta", "consultar",
+    "con", "de", "del", "disponible", "disponibles", "donde", "el", "ella", "ellos",
+    "en", "es", "ese", "esa", "estos", "estas", "favor", "hay", "hola", "buenas",
+    "buenos", "dias", "tardes", "noches", "la", "las", "lo",
+    "los", "mas", "me", "mi", "mis", "modelo", "modelos", "mostrar", "muestra",
+    "necesito", "para", "por", "precio", "precios", "puedes", "que", "quiero", "recomienda", "recomendar",
+    "barato", "baratos", "barata", "baratas", "economico", "economicos", "economica", "economicas",
+    "caro", "caros", "cara", "caras", "color", "colores", "talla", "tallas", "cuanto", "cuesta",
+    "menos", "menor", "hasta", "maximo",
+    "saber", "tenis", "tienen", "tienes", "un", "una", "unas", "unos", "ver", "y",
+}
+
+
+def _chatbot_normalize(value):
+    normalized = unicodedata.normalize("NFD", value.lower())
+    return "".join(character for character in normalized if unicodedata.category(character) != "Mn")
+
+
+def _chatbot_tokens(value):
+    return [
+        token for token in re.findall(r"[a-z0-9]+", _chatbot_normalize(value))
+        if len(token) > 1 and token not in _CHATBOT_STOP_WORDS
+    ]
+
+
+def _chatbot_catalog(message, history):
+    normalized = _chatbot_normalize(message)
+    price_match = re.search(r"(?:menos de|menor(?:es)?(?: a| que)?|hasta|maximo(?: de)?)\s*\$?\s*([\d,]+)", normalized)
+    max_price = int(price_match.group(1).replace(",", "")) if price_match else None
+
+    tokens = [token for token in _chatbot_tokens(message) if not token.isdigit()]
+    follow_up = bool(re.search(
+        r"\b(y|tambien|otra|otro|otras|otros|mas|cuanto|cuesta|precio|disponible|talla|color|"
+        r"barato|baratos|barata|baratas|economico|economicos|cara|caro|caros|premium|"
+        r"menos|menor|hasta|maximo)\b",
+        normalized,
+    ))
+    if follow_up and history:
+        previous_tokens = [token for token in _chatbot_tokens(history[-1]) if not token.isdigit()]
+        tokens = list(dict.fromkeys(previous_tokens + tokens))
+    tokens = tokens[:5]
+
+    clauses = ["activo = TRUE"]
+    parameters = []
+    for token in tokens:
+        clauses.append("(nombre ILIKE %s OR marca ILIKE %s OR color ILIKE %s OR descripcion ILIKE %s)")
+        pattern = f"%{token}%"
+        parameters.extend([pattern] * 4)
+    if max_price is not None:
+        clauses.append("precio <= %s")
+        parameters.append(max_price)
+    ordering = "precio ASC" if any(word in normalized for word in ("barato", "baratos", "economico", "economicos")) else "precio DESC" if any(
+        word in normalized for word in ("caro", "caros", "premium")
+    ) else "nombre"
+
+    query = (
+        "SELECT id_producto, nombre, marca, precio, stock, color, talla "
+        f"FROM productos WHERE {' AND '.join(clauses)} ORDER BY {ordering} LIMIT 5"
+    )
+    products = _db_query(query, tuple(parameters), fetch_all=True)
+    if not products:
+        if tokens or max_price is not None:
+            return "No encontré modelos activos que coincidan con esa búsqueda. Puedes probar con otra marca, color o modelo."
+        return "Dime qué marca, modelo o estilo buscas y consultaré el catálogo disponible."
+
+    lines = []
+    for product in products:
+        stock = f"{product['stock']} pares disponibles" if product["stock"] else "agotado por el momento"
+        details = [product["marca"]]
+        if product.get("color"):
+            details.append(product["color"])
+        lines.append(
+            f"• {product['nombre']} ({' · '.join(details)}) — "
+            f"${product['precio']:,.2f} MXN; {stock}."
+        )
+    answer = "Estos son algunos modelos del catálogo:\n" + "\n".join(lines)
+    if len(products) == 5:
+        answer += "\nPuedes afinar la búsqueda por marca, modelo o color."
+    return answer
+
+
+def _chatbot_role_response(message, role, history):
+    normalized = _chatbot_normalize(message)
+
+    if any(word in normalized for word in ("proveedor", "proveedores", "contacto del proveedor", "contactar al proveedor")):
+        if role == "admin":
+            providers = _db_query(
+                """SELECT razon_social, contacto, correo, telefono, localidad
+                   FROM proveedores ORDER BY razon_social LIMIT 8""",
+                fetch_all=True,
+            )
+            if not providers:
+                return "No hay proveedores registrados en el directorio por el momento."
+            entries = []
+            for provider in providers:
+                contact = provider.get("contacto") or "Contacto no indicado"
+                details = [provider["razon_social"], contact, provider.get("correo") or "Sin correo"]
+                if provider.get("telefono"):
+                    details.append(provider["telefono"])
+                entries.append("• " + " · ".join(details))
+            return "Directorio interno de proveedores:\n" + "\n".join(entries)
+        if role == "provider":
+            return "Desde aquí puedo ayudarte con el catálogo y el estado de tus propios productos. El directorio y los datos de contacto de otros proveedores son de uso exclusivo de administración."
+        return "Puedo ayudarte a buscar tenis del catálogo. El contacto y directorio de proveedores son de uso exclusivo del equipo administrador."
+
+    if role == "admin" and any(word in normalized for word in ("resumen", "estadistica", "ventas", "pendiente", "dashboard")):
+        summary = {
+            "products": _db_query("SELECT COUNT(*) AS value FROM productos WHERE activo=TRUE", fetch_one=True)["value"],
+            "providers": _db_query("SELECT COUNT(*) AS value FROM proveedores", fetch_one=True)["value"],
+            "pending": _db_query("SELECT COUNT(*) AS value FROM productos_proveedor WHERE estado='pendiente'", fetch_one=True)["value"],
+            "sales": _db_query("SELECT COUNT(*) AS value FROM pedidos WHERE estado <> 'cancelado'", fetch_one=True)["value"],
+        }
+        return (
+            "Resumen administrativo actual:\n"
+            f"• Modelos activos: {summary['products']}\n"
+            f"• Proveedores registrados: {summary['providers']}\n"
+            f"• Propuestas pendientes: {summary['pending']}\n"
+            f"• Pedidos no cancelados: {summary['sales']}"
+        )
+
+    if role == "provider" and any(word in normalized for word in ("mis productos", "mis propuestas", "estado de mis", "mis publicaciones")):
+        products = _db_query(
+            """SELECT nombre, marca, estado FROM productos_proveedor
+               WHERE id_proveedor=%s ORDER BY fecha_creacion DESC LIMIT 8""",
+            (session["id_proveedor"],), fetch_all=True,
+        )
+        if not products:
+            return "Aún no has enviado productos. Puedes proponer un modelo desde tu portal de proveedor."
+        return "Estado de tus productos:\n" + "\n".join(
+            f"• {product['nombre']} ({product['marca']}): {product['estado']}."
+            for product in products
+        )
+
+    if role == "customer" and any(word in normalized for word in ("mi carrito", "carrito de compras", "que hay en el carrito")):
+        items, total = _cart_details()
+        if not items:
+            return "Tu carrito está vacío. Puedes agregar tenis desde el catálogo."
+        contents = "\n".join(
+            f"• {item['producto']['nombre']} · talla {item['talla_seleccionada']} × {item['cantidad']}."
+            for item in items
+        )
+        return f"Esto tienes en tu carrito:\n{contents}\nTotal: ${total:,.2f} MXN."
+
+    if role == "customer" and any(word in normalized for word in ("mis pedidos", "mis compras", "mi pedido", "estado del pedido", "estado de mi pedido")):
+        orders = _db_query(
+            """SELECT id_pedido, estado, total, fecha_creacion FROM pedidos
+               WHERE id_clientes=%s ORDER BY fecha_creacion DESC LIMIT 5""",
+            (session["id_cliente"],), fetch_all=True,
+        )
+        if not orders:
+            return "Todavía no tienes pedidos registrados. Cuando confirmes una compra podrás consultarla aquí."
+        return "Tus pedidos más recientes:\n" + "\n".join(
+            f"• Pedido #{order['id_pedido']}: {order['estado']} — ${order['total']:,.2f} MXN."
+            for order in orders
+        )
+
+    if (
+        re.search(r"\bcomo (?:puedo )?comprar\b", normalized)
+        or any(word in normalized for word in ("carrito", "pagar", "pago", "envio", "entrega"))
+    ):
+        answer = (
+            "Elige el modelo, selecciona talla y cantidad y agrégalo al carrito. Para confirmar tu pedido "
+            "inicia sesión, completa tus datos de entrega y elige transferencia o efectivo al recibir. "
+            "La disponibilidad y el envío se confirman al procesar el pedido."
+        )
+        if role == "guest":
+            answer += " Puedes crear una cuenta o iniciar sesión para completar la compra."
+        return answer
+
+    if any(word in normalized for word in ("devolucion", "devolver", "cambio", "garantia", "reembolso")):
+        return "La tienda no muestra una política de cambios o devoluciones confirmada. Para recibir orientación, escribe a sneakerpoint@gmail.com o llama al 55 6127 2829."
+
+    if any(word in normalized for word in ("hola", "buenas", "buenos dias", "buenas tardes", "buenas noches")):
+        name = session.get("nombre_cliente") or session.get("nombre_proveedor")
+        greeting = f"¡Hola, {name}! " if name else "¡Hola! "
+        if role == "admin":
+            return greeting + "Puedo consultar el catálogo, el directorio privado de proveedores y el resumen administrativo. ¿Qué necesitas?"
+        if role == "provider":
+            return greeting + "Puedo buscar modelos del catálogo público o revisar el estado de tus productos."
+        return greeting + "Puedo buscar modelos y precios del catálogo, y ayudarte con tu compra. ¿Qué tenis buscas?"
+
+    if role == "admin" and any(word in normalized for word in ("proveedores", "directorio", "contacto")):
+        return _chatbot_role_response(message, role, history)
+    if role == "provider" and any(word in normalized for word in ("producto", "propuesta", "publicacion")) and any(
+        word in normalized for word in ("mis", "estado", "revision", "revisar")
+    ):
+        return _chatbot_role_response(message, role, history)
+    if role == "customer" and any(word in normalized for word in ("pedido", "compra")) and any(
+        word in normalized for word in ("mis", "mi", "estado")
+    ):
+        return _chatbot_role_response(message, role, history)
+
+    catalog_follow_up = bool(
+        history
+        and re.search(r"\b(y|tambien|otra|otro|otras|otros|mas|cuanto|cuesta|precio|disponible|talla|color|barato|baratos|economico|economicos|caro|caros|menos|menor|hasta|maximo)\b", normalized)
+    )
+    catalog_intent = bool(
+        _chatbot_tokens(message)
+        or catalog_follow_up
+        or any(word in normalized for word in ("catalogo", "tenis", "modelo", "marca", "color", "precio", "stock", "disponible", "recomienda", "barato", "economico", "caro"))
+    )
+    if catalog_intent:
+        return _chatbot_catalog(message, history)
+    return (
+        "Puedo ayudarte con el catálogo de tenis, precios y existencias. "
+        "También puedo orientarte sobre cómo comprar. ¿Qué marca, modelo o estilo te interesa?"
+    )
+
+
+@app.route("/api/chatbot", methods=["POST"])
+def chatbot_message():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(error="Envía un mensaje en formato JSON."), 400
+
+    message = payload.get("message")
+    if not isinstance(message, str) or not message.strip():
+        return jsonify(error="Escribe una pregunta para continuar."), 400
+    message = message.strip()
+    if len(message) > 500:
+        return jsonify(error="El mensaje debe tener 500 caracteres o menos."), 400
+
+    history = payload.get("history", [])
+    if not isinstance(history, list) or any(not isinstance(item, str) for item in history):
+        return jsonify(error="El contexto de conversación no es válido."), 400
+    history = [item.strip()[:500] for item in history[-8:] if item.strip()]
+
+    role = session.get("role", "guest") if session.get("loggedin") else "guest"
+    if role == "admin" and session.get("preview_user"):
+        role = "guest"
+    if role not in {"guest", "customer", "provider", "admin"}:
+        role = "guest"
+
+    if role == "provider":
+        try:
+            account = _db_query(
+                "SELECT activo FROM proveedores WHERE id_proveedor=%s",
+                (session.get("id_proveedor"),), fetch_one=True,
+            )
+        except Exception:
+            logging.exception("Chatbot could not verify provider access")
+            return jsonify(error="No puedo verificar el acceso en este momento. Inténtalo de nuevo."), 503
+        if not account or not account["activo"]:
+            session.clear()
+            return jsonify(error="Tu acceso de proveedor está inactivo. Inicia sesión o contacta al equipo administrador."), 403
+
+    try:
+        reply = _chatbot_role_response(message, role, history)
+    except Exception:
+        logging.exception("Chatbot request failed")
+        return jsonify(error="No pude consultar la información en este momento. Inténtalo de nuevo en unos minutos."), 503
+    return jsonify(reply=reply, role=role)
 
 
 @app.route("/add_cart", methods=["POST"])

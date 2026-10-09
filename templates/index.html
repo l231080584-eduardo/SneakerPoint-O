@@ -5,11 +5,10 @@
 {% block content %}
 <section class="home-hero">
     <div class="home-hero-copy">
-        <p class="section-kicker badge-overline">SNEAKER POINT · MAYOREO</p>
-        <h1>Encuentra proveedores para <span>tu negocio.</span></h1>
-        <p>Tenis seleccionados para tu tienda. Explora nuevos modelos, compara opciones y encuentra el par que buscan tus clientes.</p>
+        <h1>Encuentra tus tenis <span>favoritos.</span></h1>
+        <p>Explora nuevos modelos, descubre distintos estilos y encuentra el par ideal para ti.</p>
         <form action="{{ url_for('search_products') }}" method="GET" class="hero-search">
-            <input type="search" name="q" placeholder="Busca marcas, modelos o proveedores..." aria-label="Buscar productos" value="{{ search_query|default('') }}">
+            <input type="search" name="q" placeholder="Busca marcas o modelos..." aria-label="Buscar productos" value="{{ search_query|default('') }}">
             <button type="submit">Buscar tenis</button>
         </form>
     </div>
@@ -18,15 +17,8 @@
     </div>
 </section>
 
-<section class="benefit-strip" aria-label="Beneficios de Sneaker Point">
-    <div class="benefit-item"><span class="benefit-icon"><i class="fas fa-box-open"></i></span><div><strong>Precios de mayoreo</strong><span>Mejores precios por volumen</span></div></div>
-    <div class="benefit-item"><span class="benefit-icon"><i class="fas fa-shield-alt"></i></span><div><strong>Proveedores confiables</strong><span>Productos revisados</span></div></div>
-    <div class="benefit-item"><span class="benefit-icon"><i class="fas fa-shipping-fast"></i></span><div><strong>Envíos a todo el país</strong><span>Recibe en tu negocio</span></div></div>
-    <div class="benefit-item"><span class="benefit-icon"><i class="fas fa-headset"></i></span><div><strong>Soporte dedicado</strong><span>Estamos para ayudarte</span></div></div>
-</section>
-
 <section class="home-section" id="categorias">
-    <div class="section-heading"><div><p class="badge-overline">Explora opciones</p><h2>Encuentra tu próximo bestseller</h2><p>Encuentra estilos para cada tipo de cliente.</p></div></div>
+    <div class="section-heading"><div><p class="badge-overline">Explora opciones</p><h2>Encuentra tu próximo par</h2><p>Estilos para cada momento.</p></div></div>
     <div class="category-grid">
         <a class="category-card" href="{{ url_for('index', q='deportivo') }}"><img src="https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=700&q=80" alt="" loading="lazy"><span>Deportivos <i class="fas fa-arrow-right" aria-hidden="true"></i></span></a>
         <a class="category-card" href="{{ url_for('index', q='casual') }}"><img src="https://images.unsplash.com/photo-1525966222134-fcfa99b8ae77?auto=format&fit=crop&w=700&q=80" alt="" loading="lazy"><span>Casual <i class="fas fa-arrow-right" aria-hidden="true"></i></span></a>
@@ -39,7 +31,7 @@
 <div class="catalog-toolbar">
     <div>
         <p class="badge-overline">Ver catálogo ↗</p>
-        <h2 class="catalog-title">Nuevos ingresos de mayoreo</h2>
+        <h2 class="catalog-title">Nuevos modelos</h2>
         <p>{{ productos|length }} modelos disponibles</p>
     </div>
     <a href="#productos">Explorar catálogo <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
@@ -91,7 +83,7 @@
 </section>
 
 <section class="provider-callout" id="como-funciona">
-    <div><h2>¿Eres proveedor de tenis?</h2><p>Publica tus productos y conecta tu inventario con cientos de tiendas. Nuestro equipo revisa cada modelo antes de incorporarlo al catálogo.</p></div>
-    <a class="btn-primary" href="{{ url_for('provider_landing') }}">Registra aquí como proveedor <i class="fas fa-arrow-right"></i></a>
+    <div><h2>¿Eres proveedor de tenis?</h2><p>Regístrate con nosotros. Nuestro equipo revisará tus modelos para considerar su incorporación al catálogo.</p></div>
+    <a class="btn-primary" href="{{ url_for('provider_landing') }}">Regístrate con nosotros <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
 </section>
 {% endblock %}

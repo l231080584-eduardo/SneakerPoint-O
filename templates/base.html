@@ -15,9 +15,8 @@
         <button class="menu-toggle" type="button" aria-label="Abrir menú principal" aria-expanded="false" aria-controls="app-sidebar">
             <span></span><span></span><span></span>
         </button>
-        <a href="{{ url_for('index') }}" class="logo" aria-label="Sneaker Point, A11y Hub">
+        <a href="{{ url_for('index') }}" class="logo" aria-label="Sneaker Point">
             <span class="logo-wordmark">SNEAKER POINT</span>
-            <span class="logo-a11y-badge">A11Y HUB</span>
         </a>
         {% if session.get('role') == 'admin' %}
         <form class="role-switcher" method="POST" action="{{ url_for('toggle_role_preview') }}" aria-label="Previsualización de roles; no modifica los permisos de administración">
@@ -108,21 +107,93 @@
 <footer class="main-footer">
     <div class="footer-content">
         <div class="footer-left">
-            <span class="logo-footer">SNEAKER POINT <span class="logo-footer-badge">A11Y HUB</span></span>
-            <p>Tenis para cada paso.</p>
+            <span class="logo-footer">SNEAKER POINT</span>
         </div>
-        <section class="footer-accessibility" aria-labelledby="footer-accessibility-title">
-            <h2 id="footer-accessibility-title">Compromiso de accesibilidad</h2>
-            <p>Diseñamos para una experiencia inclusiva y sencilla para todas las personas.</p>
+        <section class="footer-about" aria-labelledby="footer-about-title">
+            <h2 id="footer-about-title">Quiénes somos</h2>
+            <p>Somos una tienda especializada en tenis, con precios competitivos y modelos para acompañarte en cada paso. También recibimos propuestas de quienes desean ofrecer sus productos; nuestro equipo evalúa cada modelo antes de incorporarlo al catálogo.</p>
         </section>
-        <div class="footer-right">
-            <a href="{{ url_for('provider_landing') }}">Vende con nosotros</a>
-            <span>Atención local</span>
-        </div>
+        <section class="footer-help" aria-labelledby="footer-help-title">
+            <h2 id="footer-help-title">Ayuda</h2>
+            <div class="footer-help-list">
+                <div class="footer-help-tip" data-help-tip>
+                    <button type="button" class="footer-help-trigger" aria-controls="help-faq" aria-describedby="help-faq" aria-expanded="false">Preguntas frecuentes</button>
+                    <span class="footer-help-panel" id="help-faq" role="tooltip" hidden>Para comprar necesitas iniciar sesión o crear una cuenta. Puedes consultar tus pedidos desde “Mis compras” después de iniciar sesión.</span>
+                </div>
+                <div class="footer-help-tip" data-help-tip>
+                    <button type="button" class="footer-help-trigger" aria-controls="help-buy" aria-describedby="help-buy" aria-expanded="false">Cómo comprar</button>
+                    <span class="footer-help-panel" id="help-buy" role="tooltip" hidden>Elige la talla y cantidad, agrega el modelo al carrito e inicia sesión o regístrate. Después completa tus datos de contacto y entrega, selecciona transferencia o efectivo al recibir y confirma el pedido. La disponibilidad y el envío se confirman al procesarlo.</span>
+                </div>
+                <div class="footer-help-tip" data-help-tip>
+                    <button type="button" class="footer-help-trigger" aria-controls="help-terms" aria-describedby="help-terms" aria-expanded="false">Términos del servicio</button>
+                    <span class="footer-help-panel" id="help-terms" role="tooltip" hidden>Información preliminar: los pedidos están sujetos a disponibilidad de existencias y a la confirmación del envío y del pago. Revisa que tus datos sean correctos antes de confirmar. Este resumen no sustituye los términos legales completos; estos deben revisarse y aprobarse antes de su publicación.</span>
+                </div>
+            </div>
+        </section>
+        <section class="footer-contact" aria-labelledby="footer-contact-title">
+            <h2 id="footer-contact-title">Contacto</h2>
+            <p class="footer-contact-details">
+                <a href="tel:5561272829">55 6127 2829</a><br>
+                <a href="mailto:sneakerpoint@gmail.com">sneakerpoint@gmail.com</a>
+            </p>
+        </section>
+        <section class="footer-social" aria-labelledby="footer-social-title">
+            <h2 id="footer-social-title">Síguenos</h2>
+            <p>Próximamente en redes sociales</p>
+            <div class="footer-social-icons">
+                <span class="footer-social-icon" role="img" aria-label="Facebook, próximamente" title="Facebook, próximamente"><i class="fab fa-facebook-f" aria-hidden="true"></i></span>
+                <span class="footer-social-icon" role="img" aria-label="Instagram, próximamente" title="Instagram, próximamente"><i class="fab fa-instagram" aria-hidden="true"></i></span>
+                <span class="footer-social-icon footer-social-x" role="img" aria-label="X, próximamente" title="X, próximamente"><span aria-hidden="true">X</span></span>
+            </div>
+        </section>
     </div>
 </footer>
 <a class="admin-secret-access" data-admin-access href="{{ url_for('admin_login') }}" hidden>Acceso administrativo</a>
 <div class="toast-container" data-toast-container aria-live="polite" aria-atomic="false"></div>
+<div class="chatbot-widget" data-chatbot>
+    <section class="chatbot-panel" id="chatbot-panel" data-chatbot-panel role="dialog" aria-modal="false" aria-labelledby="chatbot-title" hidden>
+        <header class="chatbot-header">
+            <div>
+                <h2 id="chatbot-title">Asistente Sneaker Point</h2>
+                <p>Catálogo y ayuda de compra</p>
+            </div>
+            <div class="chatbot-header-actions">
+                <button type="button" class="chatbot-icon-button" data-chatbot-reset aria-label="Iniciar conversación nueva" title="Limpiar conversación"><i class="fas fa-rotate-right" aria-hidden="true"></i></button>
+                <button type="button" class="chatbot-icon-button" data-chatbot-close aria-label="Cerrar asistente"><i class="fas fa-times" aria-hidden="true"></i></button>
+            </div>
+        </header>
+        <div class="chatbot-content">
+            <div class="chatbot-messages" data-chatbot-messages role="log" aria-live="polite" aria-relevant="additions text" aria-atomic="false"></div>
+            <div class="chatbot-suggestions" data-chatbot-suggestions aria-label="Preguntas sugeridas">
+                {% if session.get('role') == 'admin' and not session.get('preview_user') %}
+                    <button type="button" data-chatbot-prompt="Consulta el catálogo disponible">Consultar catálogo</button>
+                    <button type="button" data-chatbot-prompt="Resumen administrativo">Resumen administrativo</button>
+                    <button type="button" data-chatbot-prompt="Directorio de proveedores">Directorio de proveedores</button>
+                {% elif session.get('role') == 'provider' %}
+                    <button type="button" data-chatbot-prompt="Consulta el catálogo disponible">Consultar catálogo</button>
+                    <button type="button" data-chatbot-prompt="Estado de mis productos">Estado de mis productos</button>
+                {% elif session.get('role') == 'customer' %}
+                    <button type="button" data-chatbot-prompt="Consulta el catálogo disponible">Consultar catálogo</button>
+                    <button type="button" data-chatbot-prompt="Estado de mis pedidos">Mis pedidos</button>
+                    <button type="button" data-chatbot-prompt="Qué hay en mi carrito">Mi carrito</button>
+                {% else %}
+                    <button type="button" data-chatbot-prompt="Consulta el catálogo disponible">Consultar catálogo</button>
+                    <button type="button" data-chatbot-prompt="Cómo comprar">Cómo comprar</button>
+                {% endif %}
+            </div>
+            <p class="chatbot-status" data-chatbot-status role="status" aria-live="polite"></p>
+            <form class="chatbot-form" data-chatbot-form>
+                <label class="visually-hidden" for="chatbot-message">Escribe tu pregunta</label>
+                <input id="chatbot-message" name="message" type="text" maxlength="500" placeholder="Escribe tu pregunta..." autocomplete="off" required>
+                <button type="submit" aria-label="Enviar mensaje"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
+            </form>
+            <p class="chatbot-privacy-note">Consulta información de la tienda. No compartas datos bancarios ni contraseñas.</p>
+        </div>
+    </section>
+    <button class="chatbot-launcher" type="button" data-chatbot-open aria-expanded="false" aria-controls="chatbot-panel">
+        <i class="fas fa-comments" aria-hidden="true"></i><span>Ayuda</span>
+    </button>
+</div>
 <script>
     (() => {
         const toastContainer = document.querySelector('[data-toast-container]');
@@ -142,6 +213,107 @@
             toastContainer.append(toast);
             window.setTimeout(() => toast.remove(), 5000);
         };
+        const chatbot = document.querySelector('[data-chatbot]');
+        if (chatbot) {
+            const panel = chatbot.querySelector('[data-chatbot-panel]');
+            const launcher = chatbot.querySelector('[data-chatbot-open]');
+            const closeButton = chatbot.querySelector('[data-chatbot-close]');
+            const resetButton = chatbot.querySelector('[data-chatbot-reset]');
+            const messageList = chatbot.querySelector('[data-chatbot-messages]');
+            const form = chatbot.querySelector('[data-chatbot-form]');
+            const input = form.querySelector('input[name="message"]');
+            const sendButton = form.querySelector('button[type="submit"]');
+            const status = chatbot.querySelector('[data-chatbot-status]');
+            const prompts = chatbot.querySelectorAll('[data-chatbot-prompt]');
+            const openingMessage = '¡Hola! Puedo consultar el catálogo, precios y existencias, además de orientarte con tu compra.';
+            const userHistory = [];
+            let busy = false;
+
+            const addMessage = (text, sender) => {
+                const message = document.createElement('div');
+                message.className = `chatbot-message chatbot-message-${sender}`;
+                message.setAttribute('aria-label', sender === 'assistant' ? 'Respuesta del asistente' : 'Tu mensaje');
+                const content = document.createElement('p');
+                content.textContent = text;
+                message.append(content);
+                messageList.append(message);
+                messageList.scrollTop = messageList.scrollHeight;
+            };
+
+            const setOpen = (open) => {
+                panel.hidden = !open;
+                launcher.setAttribute('aria-expanded', String(open));
+                if (open) {
+                    input.focus();
+                    messageList.scrollTop = messageList.scrollHeight;
+                } else {
+                    launcher.focus();
+                }
+            };
+
+            const sendMessage = async (text) => {
+                if (busy || !text.trim()) return;
+                busy = true;
+                input.value = '';
+                input.disabled = true;
+                sendButton.disabled = true;
+                resetButton.disabled = true;
+                form.setAttribute('aria-busy', 'true');
+                status.textContent = 'Consultando el catálogo...';
+                addMessage(text, 'user');
+                userHistory.push(text);
+                if (userHistory.length > 8) userHistory.shift();
+
+                const controller = new AbortController();
+                const timeout = window.setTimeout(() => controller.abort(), 20000);
+                try {
+                    const response = await fetch('/api/chatbot', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify({ message: text, history: userHistory.slice(0, -1) }),
+                        signal: controller.signal
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error || 'No se pudo procesar tu mensaje.');
+                    addMessage(result.reply, 'assistant');
+                    status.textContent = '';
+                } catch (error) {
+                    const errorMessage = error.name === 'AbortError'
+                        ? 'La consulta tardó demasiado. Inténtalo de nuevo.'
+                        : error.message || 'No pude conectar con el asistente. Inténtalo de nuevo.';
+                    addMessage(errorMessage, 'assistant');
+                    status.textContent = 'No se pudo completar la consulta.';
+                } finally {
+                    window.clearTimeout(timeout);
+                    busy = false;
+                    input.disabled = false;
+                    sendButton.disabled = false;
+                    resetButton.disabled = false;
+                    form.removeAttribute('aria-busy');
+                    input.focus();
+                }
+            };
+
+            addMessage(openingMessage, 'assistant');
+            launcher.addEventListener('click', () => setOpen(panel.hidden));
+            closeButton.addEventListener('click', () => setOpen(false));
+            form.addEventListener('submit', (event) => {
+                event.preventDefault();
+                sendMessage(input.value);
+            });
+            prompts.forEach((prompt) => prompt.addEventListener('click', () => sendMessage(prompt.dataset.chatbotPrompt)));
+            resetButton.addEventListener('click', () => {
+                userHistory.length = 0;
+                messageList.replaceChildren();
+                status.textContent = 'Conversación nueva.';
+                addMessage(openingMessage, 'assistant');
+                input.focus();
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && !panel.hidden) setOpen(false);
+            });
+        }
         document.querySelectorAll('.flash-message').forEach((flash) => {
             const type = flash.classList.contains('flash-error') ? 'error' : 'success';
             window.showToast(flash.textContent.trim(), type);
@@ -416,6 +588,30 @@
                 applyPreferences();
                 savePreferences();
                 a11yStatus.textContent = `${control.closest('.a11y-switch').querySelector('span').textContent}: ${control.checked ? 'activado' : 'desactivado'}.`;
+            });
+        });
+
+        document.querySelectorAll('[data-help-tip]').forEach((tip) => {
+            const trigger = tip.querySelector('.footer-help-trigger');
+            const panel = tip.querySelector('.footer-help-panel');
+            const setExpanded = (expanded) => {
+                panel.hidden = !expanded;
+                trigger.setAttribute('aria-expanded', String(expanded));
+            };
+
+            tip.addEventListener('pointerenter', () => setExpanded(true));
+            tip.addEventListener('pointerleave', () => {
+                if (!tip.contains(document.activeElement)) setExpanded(false);
+            });
+            tip.addEventListener('focusin', () => setExpanded(true));
+            tip.addEventListener('focusout', (event) => {
+                if (!tip.contains(event.relatedTarget) && !tip.matches(':hover')) setExpanded(false);
+            });
+            trigger.addEventListener('click', () => {
+                setExpanded(panel.hidden);
+            });
+            trigger.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') setExpanded(false);
             });
         });
 

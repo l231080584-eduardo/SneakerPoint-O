@@ -8,19 +8,15 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='storefront.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
-<body class="auth-body admin-auth-body">
-    <main class="auth-container admin-auth-card">
-        <a class="auth-brand" href="{{ url_for('index') }}" aria-label="Sneaker Point, volver a la tienda">
-            <span class="auth-brand-mark" aria-hidden="true"><i class="fas fa-shoe-prints"></i></span>
-            <span>SNEAKER POINT <small>A11Y HUB</small></span>
-        </a>
-        <span class="auth-role"><i class="fas fa-shield-halved" aria-hidden="true"></i> Acceso privado</span>
-        <h1>Administración</h1>
+<body class="auth-body">
+    <main class="auth-container">
+        <span class="auth-role">Acceso privado</span>
+        <h1>SNEAKER POINT</h1>
+        <h2>Administración</h2>
         <p class="auth-brandline">Accede de forma segura para gestionar el catálogo, proveedores y ventas.</p>
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
-        <div class="admin-login-alert flash-{{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}" aria-live="{{ 'assertive' if category == 'error' else 'polite' }}">
-            <i class="fas {{ 'fa-circle-exclamation' if category == 'error' else 'fa-circle-info' if category in ['info', 'warning'] else 'fa-circle-check' }}" aria-hidden="true"></i>
+        <div class="flash-message flash-{{ category }}" role="{{ 'alert' if category == 'error' else 'status' }}" aria-live="{{ 'assertive' if category == 'error' else 'polite' }}">
             <span>{{ message }}</span>
         </div>
         {% endfor %}
@@ -28,24 +24,18 @@
         <form action="{{ url_for('admin_login') }}" method="POST" class="standard-form admin-login-form">
             <div class="form-group">
                 <label for="correo">Correo administrativo</label>
-                <div class="admin-login-input-wrap">
-                    <i class="fas fa-envelope" aria-hidden="true"></i>
-                    <input type="email" id="correo" name="correo" autocomplete="username" aria-describedby="admin-email-help" required>
-                </div>
+                <input type="email" id="correo" name="correo" autocomplete="username" aria-describedby="admin-email-help" required>
                 <span id="admin-email-help" class="visually-hidden">Escribe el correo asociado a tu cuenta de administración.</span>
             </div>
             <div class="form-group">
                 <label for="contraseña">Contraseña</label>
-                <div class="admin-login-input-wrap">
-                    <i class="fas fa-lock" aria-hidden="true"></i>
-                    <input type="password" id="contraseña" name="contraseña" autocomplete="current-password" aria-describedby="admin-password-help" minlength="8" maxlength="20" required>
-                </div>
+                <input type="password" id="contraseña" name="contraseña" autocomplete="current-password" aria-describedby="admin-password-help" minlength="8" maxlength="20" required>
                 <span id="admin-password-help" class="visually-hidden">Escribe la contraseña de tu cuenta de administración.</span>
             </div>
-            <button type="submit" class="btn-primary btn-full-width admin-login-submit"><span>Entrar al panel</span><i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+            <button type="submit" class="btn-primary btn-full-width">Entrar al panel</button>
         </form>
         <p class="switch-link"><a href="{{ url_for('index') }}"><i class="fas fa-arrow-left" aria-hidden="true"></i> Volver a la tienda</a></p>
-        <p class="admin-auth-security"><i class="fas fa-lock" aria-hidden="true"></i> Conexión segura · Acceso solo para personal autorizado</p>
+        <p class="auth-brandline">Conexión segura · Acceso solo para personal autorizado.</p>
     </main>
 </body>
 </html>

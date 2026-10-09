@@ -6,6 +6,7 @@
     <title>SNEAKER POINT | Iniciar sesión</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='storefront.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body class="auth-body">
     <div class="auth-container">
@@ -39,7 +40,8 @@
         
         <p class="switch-link">
             ¿No tienes cuenta? <a href="{{ url_for('registro') }}">Regístrate</a><br>
-            <a href="{{ url_for('provider_login') }}">Acceso proveedor</a>
+            <a href="{{ url_for('provider_login') }}">Acceso proveedor</a><br>
+            <a href="{{ url_for('index') }}"><i class="fas fa-arrow-left" aria-hidden="true"></i> Volver a la tienda</a>
         </p>
     </div>
 </body>

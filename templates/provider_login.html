@@ -6,6 +6,7 @@
     <title>SNEAKER POINT | Acceso de proveedores</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='storefront.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body class="auth-body">
 <main class="auth-container">
@@ -21,7 +22,7 @@
         <div class="form-group"><label for="contraseña">Contraseña</label><input id="contraseña" name="contraseña" type="password" autocomplete="current-password" minlength="8" maxlength="20" required></div>
         <button class="btn-primary btn-full-width" type="submit">Entrar al portal</button>
     </form>
-    <p class="switch-link">¿Nuevo proveedor? <a href="{{ url_for('provider_register') }}">Solicita una cuenta</a><br><a href="{{ url_for('index') }}">Volver a la tienda</a></p>
+    <p class="switch-link">¿Nuevo proveedor? <a href="{{ url_for('provider_register') }}">Solicita una cuenta</a><br><a href="{{ url_for('index') }}"><i class="fas fa-arrow-left" aria-hidden="true"></i> Volver a la tienda</a></p>
 </main>
 </body>
 </html>
