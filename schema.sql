@@ -78,6 +78,25 @@ CREATE TABLE IF NOT EXISTS pedidos (
     fecha_creacion TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+DO $$
+DECLARE
+    payment_constraint RECORD;
+BEGIN
+    FOR payment_constraint IN
+        SELECT conname
+        FROM pg_constraint
+        WHERE conrelid = 'pedidos'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%metodo_pago%'
+    LOOP
+        EXECUTE format('ALTER TABLE pedidos DROP CONSTRAINT %I', payment_constraint.conname);
+    END LOOP;
+
+    ALTER TABLE pedidos
+        ADD CONSTRAINT pedidos_metodo_pago_check
+        CHECK (metodo_pago IN ('Transferencia', 'Efectivo', 'Mercado Pago'));
+END $$;
+
 ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS nombre VARCHAR(120) NOT NULL DEFAULT '';
 ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS apellido VARCHAR(120) NOT NULL DEFAULT '';
 ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS correo VARCHAR(255) NOT NULL DEFAULT '';

@@ -35,7 +35,7 @@ DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
 if DB_ENGINE not in {"postgres", "sqlserver"}:
     raise ValueError("DB_ENGINE debe ser 'postgres' o 'sqlserver'.")
 
-MP_ACCESS_TOKEN = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "")
+MP_ACCESS_TOKEN = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
 MP_PUBLIC_KEY = os.getenv("MERCADOPAGO_PUBLIC_KEY", "")
 MP_WEBHOOK_SECRET = os.getenv("MERCADOPAGO_WEBHOOK_SECRET", "")
 MP_BASE_URL = os.getenv("MERCADOPAGO_BASE_URL", "").strip().rstrip("/")
@@ -928,6 +928,14 @@ def _mp_preference_data(items, total, order_id=None):
     return preference_data
 
 
+def _mp_checkout_url(preference):
+    if not isinstance(preference, dict):
+        return None
+    if MP_ACCESS_TOKEN.startswith("TEST-"):
+        return preference.get("sandbox_init_point")
+    return preference.get("init_point")
+
+
 @app.route("/pago/mercadopago/crear", methods=["POST"])
 @customer_required
 def pago_mp_crear():
@@ -1022,7 +1030,8 @@ def pago_mp_crear():
         return jsonify({"error": "No se pudo conectar con Mercado Pago. Verifica el token y vuelve a intentarlo."}), 502
 
     preference = preference_response.get("response")
-    if not isinstance(preference, dict) or not preference.get("init_point"):
+    checkout_url = _mp_checkout_url(preference)
+    if not checkout_url:
         causes = preference.get("cause", []) if isinstance(preference, dict) else []
         details = "; ".join(
             cause["description"] for cause in causes
@@ -1039,7 +1048,7 @@ def pago_mp_crear():
         return jsonify({"error": message}), 502
 
     return jsonify({
-        "init_point": preference["init_point"],
+        "init_point": checkout_url,
         "preference_id": preference["id"],
         "order_id": order_id,
     })
