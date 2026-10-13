@@ -8,7 +8,7 @@ Tienda minorista de tenis con catálogo público. Los compradores crean una cuen
 - Proveedores: información y solicitud de cuenta en `/proveedores`; administración habilita su acceso antes de usar `/proveedor/login`. Los productos enviados quedan privados hasta que administración los publica.
 - Administración: acceso en `/admin/login`, dashboard en `/admin/dashboard`, CRUD de tenis/proveedores, aprobación de propuestas e historial de ventas. Los contactos de proveedores solo aparecen en sus pantallas privadas.
 
-El checkout registra efectivo al recibir o transferencia. No se guardan datos de tarjeta ni se integra una pasarela de pagos.
+El checkout admite efectivo al recibir, transferencia y pagos con Mercado Pago. Los datos de tarjeta se capturan directamente en Mercado Pago; la tienda no los almacena.
 
 ## Base de datos
 
@@ -40,5 +40,12 @@ No subas `.env` a Git. En producción usa una `SECRET_KEY` aleatoria y privada.
 4. Ejecuta `schema.sql` en la base alojada.
 5. Railway usa [Procfile](Procfile) para iniciar Gunicorn. Genera el dominio público desde la configuración del servicio.
 6. Entra al panel admin, revisa solicitudes de proveedor, habilita las cuentas y publica los modelos que quieres mostrar en el catálogo público.
+
+## Render
+
+1. Despliega el repositorio sin subir el archivo `.env`; configura en **Environment** las variables de base de datos y una `SECRET_KEY` aleatoria, privada y estable. No la cambies entre despliegues ni workers, porque se invalidan las sesiones de usuario.
+2. Configura `MERCADOPAGO_ACCESS_TOKEN` con el token de acceso de la aplicación de Mercado Pago. `MERCADOPAGO_PUBLIC_KEY` y `MERCADOPAGO_WEBHOOK_SECRET` solo se necesitan para las funciones que los usan.
+3. Define `MERCADOPAGO_BASE_URL` como el dominio HTTPS público del servicio, por ejemplo `https://sneakerpoint-o.onrender.com`, para configurar las URL de retorno del pago.
+4. Usa `gunicorn --workers 2 --bind 0.0.0.0:$PORT index:app` como comando de inicio y verifica los logs del servicio después del despliegue.
 
 Las imágenes deben usar URLs públicas. La foto de portada y la imagen genérica de tenis son recursos remotos de demostración.

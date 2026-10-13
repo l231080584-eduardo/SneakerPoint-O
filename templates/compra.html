@@ -73,12 +73,18 @@
                 body: formData
             });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || 'No se pudo iniciar el pago');
+            const contentType = response.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                if (response.redirected) {
+                    throw new Error('Tu sesión pudo haber expirado. Inicia sesión de nuevo y vuelve a intentar el pago.');
+                }
+                throw new Error(`El servidor respondió con una página inesperada (HTTP ${response.status}). Revisa los logs de Render.`);
             }
 
             const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || `No se pudo iniciar el pago (HTTP ${response.status}).`);
+            }
             if (data.init_point) {
                 window.location.href = data.init_point;
             } else {

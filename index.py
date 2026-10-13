@@ -204,6 +204,8 @@ def role_required(role, login_endpoint):
         @wraps(view)
         def wrapped(*args, **kwargs):
             if not session.get("loggedin") or session.get("role") != role:
+                if request.accept_mimetypes.best == "application/json":
+                    return jsonify({"error": "Tu sesión expiró. Inicia sesión y vuelve a intentar el pago."}), 401
                 flash("Inicia sesión para acceder a esta sección.", "warning")
                 return redirect(url_for(login_endpoint, next=request.path))
             if role == "provider":
@@ -216,6 +218,8 @@ def role_required(role, login_endpoint):
                     account = None
                 if not account or not account["activo"]:
                     session.clear()
+                    if request.accept_mimetypes.best == "application/json":
+                        return jsonify({"error": "El acceso de proveedor no está activo."}), 403
                     flash("El acceso de proveedor no está activo.", "warning")
                     return redirect(url_for("provider_login"))
             return view(*args, **kwargs)
@@ -933,10 +937,10 @@ def pago_mp_crear():
     try:
         items, total = _cart_details()
     except Exception:
-        items, total = [], 0
+        logging.exception("Could not load cart for Mercado Pago checkout")
+        return jsonify({"error": "No se pudo cargar tu carrito. Intenta de nuevo."}), 500
     if not items:
-        flash("Tu carrito está vacío.", "warning")
-        return redirect(url_for("index"))
+        return jsonify({"error": "Tu carrito está vacío. Agrega productos antes de pagar."}), 400
 
     conn = None
     cur = None
@@ -968,8 +972,7 @@ def pago_mp_crear():
             "codigo_postal": request.form.get("CP", "").strip(),
         }
         if not all([fields["nombre"], fields["apellido"], fields["correo"], fields["telefono"], fields["calle"], fields["numero_exterior"], fields["codigo_postal"]]):
-            flash("Completa los datos de entrega.", "error")
-            return redirect(url_for("comprar"))
+            raise ValueError("Completa todos los datos de entrega.")
 
         _execute(cur,
                 """INSERT INTO pedidos
@@ -990,18 +993,21 @@ def pago_mp_crear():
                 (product["id_producto"], session["id_cliente"], order_id, quantity, line_total, size, "Mercado Pago"),
             )
         conn.commit()
-    except (ValueError,) + _database_error_types() as error:
+    except ValueError as error:
         if conn:
             conn.rollback()
         logging.exception("Order checkout failed")
-        flash(str(error) if isinstance(error, ValueError) else "No se pudo completar el pedido. Intenta de nuevo.", "error")
-        return redirect(url_for("carrito"))
+        return jsonify({"error": str(error)}), 400
+    except _database_error_types():
+        if conn:
+            conn.rollback()
+        logging.exception("Order checkout failed")
+        return jsonify({"error": "No se pudo completar el pedido. Revisa la conexión con la base de datos y vuelve a intentar."}), 500
     except Exception:
         if conn:
             conn.rollback()
         logging.exception("Unexpected checkout error")
-        flash("Ocurrió un error al completar el pedido.", "error")
-        return redirect(url_for("carrito"))
+        return jsonify({"error": "Ocurrió un error al preparar el pedido. Intenta de nuevo."}), 500
     finally:
         if cur:
             cur.close()
