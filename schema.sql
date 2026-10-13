@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS pedidos (
     numero_exterior VARCHAR(30) NOT NULL,
     numero_interior VARCHAR(30) NOT NULL DEFAULT '',
     codigo_postal VARCHAR(12) NOT NULL,
-    metodo_pago VARCHAR(30) NOT NULL CHECK (metodo_pago IN ('Transferencia', 'Efectivo')),
+    metodo_pago VARCHAR(30) NOT NULL CHECK (metodo_pago IN ('Transferencia', 'Efectivo', 'Mercado Pago')),
     total NUMERIC(12, 2) NOT NULL CHECK (total >= 0),
     estado VARCHAR(24) NOT NULL DEFAULT 'pendiente'
         CHECK (estado IN ('pendiente', 'pagado', 'preparando', 'enviado', 'completado', 'cancelado')),

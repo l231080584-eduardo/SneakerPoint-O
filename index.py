@@ -1,5 +1,6 @@
 
 from functools import wraps
+from decimal import Decimal, InvalidOperation
 import hashlib
 import hmac
 import logging
@@ -9,6 +10,7 @@ import re
 import unicodedata
 from urllib.parse import urlsplit
 
+import mercadopago
 import psycopg2
 from dotenv import load_dotenv
 from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
@@ -32,6 +34,17 @@ DB_ENGINE = os.getenv("DB_ENGINE", "postgres").strip().lower()
 DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
 if DB_ENGINE not in {"postgres", "sqlserver"}:
     raise ValueError("DB_ENGINE debe ser 'postgres' o 'sqlserver'.")
+
+MP_ACCESS_TOKEN = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "")
+MP_PUBLIC_KEY = os.getenv("MERCADOPAGO_PUBLIC_KEY", "")
+MP_WEBHOOK_SECRET = os.getenv("MERCADOPAGO_WEBHOOK_SECRET", "")
+MP_BASE_URL = os.getenv("MERCADOPAGO_BASE_URL", "").strip().rstrip("/")
+if MP_BASE_URL:
+    parsed_mp_base_url = urlsplit(MP_BASE_URL)
+    if parsed_mp_base_url.scheme != "https" or not parsed_mp_base_url.netloc:
+        raise ValueError("MERCADOPAGO_BASE_URL debe ser una URL pública HTTPS.")
+
+mp_sdk = mercadopago.SDK(MP_ACCESS_TOKEN) if MP_ACCESS_TOKEN else None
 
 
 def get_conn():
@@ -886,6 +899,318 @@ def comprar():
     session.pop("cart", None)
     flash(f"Pedido #{order_id} recibido. Gracias por tu compra.", "success")
     return redirect(url_for("mis_pedidos"))
+
+
+def _mp_preference_data(items, total, order_id=None):
+    preference_items = []
+    for item in items:
+        preference_items.append({
+            "title": item["producto"]["nombre"],
+            "quantity": int(item["cantidad"]),
+            "unit_price": float(item["producto"]["precio"]),
+            "currency_id": "MXN",
+        })
+    preference_data = {
+        "items": preference_items,
+        "external_reference": str(order_id) if order_id else None,
+    }
+    if MP_BASE_URL:
+        preference_data["back_urls"] = {
+            "success": f"{MP_BASE_URL}{url_for('pago_mp_exito')}",
+            "failure": f"{MP_BASE_URL}{url_for('pago_mp_fallo')}",
+            "pending": f"{MP_BASE_URL}{url_for('pago_mp_pendiente')}",
+        }
+        preference_data["auto_return"] = "approved"
+    return preference_data
+
+
+@app.route("/pago/mercadopago/crear", methods=["POST"])
+@customer_required
+def pago_mp_crear():
+    if not mp_sdk:
+        return jsonify({"error": "Mercado Pago no está configurado. Agrega MERCADOPAGO_ACCESS_TOKEN a .env."}), 503
+
+    try:
+        items, total = _cart_details()
+    except Exception:
+        items, total = [], 0
+    if not items:
+        flash("Tu carrito está vacío.", "warning")
+        return redirect(url_for("index"))
+
+    conn = None
+    cur = None
+    try:
+        conn = get_conn()
+        cur = _cursor(conn)
+        total = 0
+        locked_items = []
+        for key, quantity in session.get("cart", {}).items():
+            product_id_text, size = key.split("_", 1)
+            quantity = int(quantity)
+            if quantity < 1:
+                raise ValueError("Cantidad inválida.")
+            _execute(cur, "SELECT id_producto, nombre, precio, stock FROM productos WHERE id_producto = %s AND activo = TRUE FOR UPDATE", (int(product_id_text),))
+            product = _fetchone(cur)
+            if not product or product["stock"] < quantity:
+                raise ValueError(f"No hay stock suficiente para {product['nombre'] if product else 'uno de los modelos'}.")
+            total += product["precio"] * quantity
+            locked_items.append((product, quantity, size))
+
+        fields = {
+            "nombre": request.form.get("nombre", "").strip(),
+            "apellido": request.form.get("apellido", "").strip(),
+            "correo": request.form.get("correo", "").strip(),
+            "telefono": request.form.get("telefono", "").strip(),
+            "calle": request.form.get("calle", "").strip(),
+            "numero_exterior": request.form.get("num_ext", "").strip(),
+            "numero_interior": request.form.get("num_int", "").strip(),
+            "codigo_postal": request.form.get("CP", "").strip(),
+        }
+        if not all([fields["nombre"], fields["apellido"], fields["correo"], fields["telefono"], fields["calle"], fields["numero_exterior"], fields["codigo_postal"]]):
+            flash("Completa los datos de entrega.", "error")
+            return redirect(url_for("comprar"))
+
+        _execute(cur,
+                """INSERT INTO pedidos
+                    (id_clientes, nombre, apellido, correo, telefono, calle, numero_exterior,
+                     numero_interior, codigo_postal, metodo_pago, total, estado)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'pendiente')
+                    RETURNING id_pedido""",
+                (session["id_cliente"], fields["nombre"], fields["apellido"], fields["correo"],
+                 fields["telefono"], fields["calle"], fields["numero_exterior"],
+                 fields["numero_interior"], fields["codigo_postal"], "Mercado Pago", total),
+        )
+        order_id = _fetchone(cur)["id_pedido"]
+        for product, quantity, size in locked_items:
+            line_total = product["precio"] * quantity
+            _execute(cur,
+                """INSERT INTO ventas (id_producto, id_clientes, id_pedido, cantidad, total, talla, metodo_pago)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                (product["id_producto"], session["id_cliente"], order_id, quantity, line_total, size, "Mercado Pago"),
+            )
+        conn.commit()
+    except (ValueError,) + _database_error_types() as error:
+        if conn:
+            conn.rollback()
+        logging.exception("Order checkout failed")
+        flash(str(error) if isinstance(error, ValueError) else "No se pudo completar el pedido. Intenta de nuevo.", "error")
+        return redirect(url_for("carrito"))
+    except Exception:
+        if conn:
+            conn.rollback()
+        logging.exception("Unexpected checkout error")
+        flash("Ocurrió un error al completar el pedido.", "error")
+        return redirect(url_for("carrito"))
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+    preference_data = _mp_preference_data(items, total, order_id)
+    try:
+        preference_response = mp_sdk.preference().create(preference_data)
+    except Exception:
+        logging.exception("Could not create Mercado Pago preference")
+        return jsonify({"error": "No se pudo conectar con Mercado Pago. Verifica el token y vuelve a intentarlo."}), 502
+
+    preference = preference_response.get("response")
+    if not isinstance(preference, dict) or not preference.get("init_point"):
+        causes = preference.get("cause", []) if isinstance(preference, dict) else []
+        details = "; ".join(
+            cause["description"] for cause in causes
+            if isinstance(cause, dict) and cause.get("description")
+        )
+        detail = details or (preference.get("message") if isinstance(preference, dict) else None)
+        logging.error(
+            "Mercado Pago rejected preference creation with status %s: %s",
+            preference_response.get("status"), detail or "sin detalle",
+        )
+        message = "Mercado Pago rechazó la solicitud."
+        if detail:
+            message = f"{message} {detail}"
+        return jsonify({"error": message}), 502
+
+    return jsonify({
+        "init_point": preference["init_point"],
+        "preference_id": preference["id"],
+        "order_id": order_id,
+    })
+
+
+def _verify_mp_payment(payment_id):
+    if not mp_sdk or not payment_id:
+        return None
+    try:
+        payment_response = mp_sdk.payment().get(payment_id)
+        return payment_response["response"]
+    except Exception:
+        logging.exception("Could not verify Mercado Pago payment")
+        return None
+
+
+def _update_order_payment_status(order_id, payment_id, status, customer_id=None, amount=None, currency=None):
+    conn = None
+    cur = None
+    try:
+        conn = get_conn()
+        cur = _cursor(conn)
+        if customer_id is None:
+            _execute(cur, "SELECT id_pedido, estado, total FROM pedidos WHERE id_pedido = %s FOR UPDATE", (order_id,))
+        else:
+            _execute(cur, "SELECT id_pedido, estado, total FROM pedidos WHERE id_pedido = %s AND id_clientes = %s FOR UPDATE", (order_id, customer_id))
+        order = _fetchone(cur)
+        if not order:
+            return False, "Pedido no encontrado"
+        if order["estado"] == "pagado":
+            return True, "El pedido ya fue pagado"
+        if status == "approved":
+            try:
+                payment_total = Decimal(str(amount))
+            except (InvalidOperation, TypeError, ValueError):
+                return False, "Importe de pago inválido"
+            if currency != "MXN" or payment_total != Decimal(str(order["total"])):
+                return False, "El importe o la moneda del pago no coinciden con el pedido"
+            if order["estado"] == "cancelado":
+                return False, "El pedido está cancelado"
+            _execute(cur, "UPDATE pedidos SET estado = 'pagado' WHERE id_pedido = %s", (order_id,))
+            _execute(cur, "UPDATE ventas SET referencia_pago = %s WHERE id_pedido = %s", (str(payment_id), order_id))
+            conn.commit()
+            if customer_id is not None:
+                session.pop("cart", None)
+            return True, "Pago confirmado"
+        if status in {"pending", "in_process"} and order["estado"] != "cancelado":
+            conn.commit()
+            return True, "Pago pendiente"
+        conn.commit()
+        return True, "Estado de pago procesado"
+    except Exception:
+        if conn:
+            conn.rollback()
+        logging.exception("Could not update payment status")
+        return False, "Error al actualizar el pedido"
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
+
+
+@app.route("/pago/mercadopago/exito")
+@customer_required
+def pago_mp_exito():
+    payment_id = request.args.get("payment_id")
+    order_id = request.args.get("external_reference")
+    payment = _verify_mp_payment(payment_id)
+    if payment and payment.get("status") == "approved" and str(payment.get("external_reference")) == str(order_id):
+        success, message = _update_order_payment_status(
+            order_id,
+            payment_id,
+            "approved",
+            customer_id=session["id_cliente"],
+            amount=payment.get("transaction_amount"),
+            currency=payment.get("currency_id"),
+        )
+        if success:
+            flash(f"Pago confirmado. Pedido #{order_id} pagado.", "success")
+        else:
+            flash(f"Pago recibido pero hubo un problema: {message}", "warning")
+    else:
+        flash("No se pudo verificar el pago. Contacta al administrador.", "warning")
+    return redirect(url_for("mis_pedidos"))
+
+
+@app.route("/pago/mercadopago/fallo")
+@customer_required
+def pago_mp_fallo():
+    order_id = request.args.get("external_reference")
+    if order_id:
+        _update_order_payment_status(order_id, None, "rejected", customer_id=session["id_cliente"])
+    flash("El pago fue rechazado. Puedes intentar de nuevo.", "error")
+    return redirect(url_for("carrito"))
+
+
+@app.route("/pago/mercadopago/pendiente")
+@customer_required
+def pago_mp_pendiente():
+    order_id = request.args.get("external_reference")
+    if order_id:
+        _update_order_payment_status(order_id, None, "pending", customer_id=session["id_cliente"])
+    flash("El pago está pendiente. Te notificaremos cuando se confirme.", "info")
+    return redirect(url_for("mis_pedidos"))
+
+
+@app.route("/pago/mercadopago/webhook", methods=["POST"])
+def pago_mp_webhook():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    if not MP_WEBHOOK_SECRET:
+        logging.error("Mercado Pago webhook secret is not configured")
+        return jsonify({"error": "Webhook no configurado"}), 503
+
+    body_data_id = str((data.get("data") or {}).get("id", ""))
+    query_data_id = request.args.get("data.id", "")
+    if body_data_id and query_data_id and body_data_id.lower() != query_data_id.lower():
+        return jsonify({"error": "Payment ID mismatch"}), 400
+    payment_id = query_data_id or body_data_id
+    if not payment_id or not _valid_mp_webhook_signature(
+        request.headers.get("x-signature", ""),
+        request.headers.get("x-request-id", ""),
+        payment_id,
+    ):
+        return jsonify({"error": "Unauthorized"}), 401
+
+    action = data.get("action", "")
+    if action not in ("payment.created", "payment.updated"):
+        return jsonify({"status": "ignored"}), 200
+
+    payment = _verify_mp_payment(payment_id)
+    if not payment:
+        return jsonify({"error": "Payment not found"}), 404
+    if payment.get("id") is not None and str(payment["id"]) != str(payment_id):
+        return jsonify({"error": "Payment ID mismatch"}), 400
+
+    external_reference = payment.get("external_reference")
+    if not external_reference or not str(external_reference).isdigit():
+        return jsonify({"error": "Missing external reference"}), 400
+
+    order_id = int(external_reference)
+    status = payment.get("status")
+    success, message = _update_order_payment_status(
+        order_id,
+        payment_id,
+        status,
+        amount=payment.get("transaction_amount"),
+        currency=payment.get("currency_id"),
+    )
+    if not success:
+        return jsonify({"error": message}), 400
+    return jsonify({"status": "processed"}), 200
+
+
+def _valid_mp_webhook_signature(signature, request_id, data_id):
+    if not MP_WEBHOOK_SECRET or not signature or not request_id or not data_id:
+        return False
+
+    signature_parts = {}
+    for part in signature.split(","):
+        key, separator, value = part.strip().partition("=")
+        if separator:
+            signature_parts[key] = value
+
+    timestamp = signature_parts.get("ts")
+    provided_hash = signature_parts.get("v1")
+    if not timestamp or not provided_hash:
+        return False
+
+    manifest = f"id:{str(data_id).lower()};request-id:{request_id};ts:{timestamp};"
+    expected_hash = hmac.new(
+        MP_WEBHOOK_SECRET.encode("utf-8"), manifest.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected_hash, provided_hash)
 
 
 @app.route("/mis-pedidos")

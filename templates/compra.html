@@ -23,9 +23,9 @@
             </div>
             <div class="form-group"><label for="CP">Código postal</label><input id="CP" name="CP" autocomplete="postal-code" required></div>
             <h2>Método de pago</h2>
-            <div class="form-group"><label for="metodo_pago">Selecciona una opción</label><select id="metodo_pago" name="metodo_pago" required><option value="" disabled selected>Selecciona</option><option value="Transferencia">Transferencia bancaria</option><option value="Efectivo">Efectivo al recibir</option></select></div>
-            <p class="product-details">El pago se coordina al confirmar el pedido. No solicitamos números de tarjeta en este formulario.</p>
-            <button type="submit" class="btn-primary btn-full-width">Confirmar pedido</button>
+            <div class="form-group"><label for="metodo_pago">Selecciona una opción</label><select id="metodo_pago" name="metodo_pago" required><option value="" disabled selected>Selecciona</option><option value="Transferencia">Transferencia bancaria</option><option value="Efectivo">Efectivo al recibir</option><option value="Mercado Pago">Mercado Pago</option></select></div>
+            <p class="product-details" id="payment-help">El pago se coordina al confirmar el pedido. No solicitamos números de tarjeta en este formulario.</p>
+            <button type="submit" class="btn-primary btn-full-width" id="checkout-submit">Confirmar pedido</button>
         </form>
         <aside class="cart-summary-box">
             <h2>Tu pedido</h2>
@@ -36,4 +36,60 @@
         </aside>
     </div>
 </section>
+<script>
+(() => {
+    const form = document.querySelector('.standard-form');
+    const metodoSelect = document.getElementById('metodo_pago');
+    const paymentHelp = document.getElementById('payment-help');
+    const submitBtn = document.getElementById('checkout-submit');
+
+    if (!form || !metodoSelect) return;
+
+    metodoSelect.addEventListener('change', () => {
+        if (metodoSelect.value === 'Mercado Pago') {
+            paymentHelp.textContent = 'Serás redirigido a Mercado Pago para completar tu pago de forma segura.';
+            submitBtn.textContent = 'Pagar con Mercado Pago';
+        } else {
+            paymentHelp.textContent = 'El pago se coordina al confirmar el pedido. No solicitamos números de tarjeta en este formulario.';
+            submitBtn.textContent = 'Confirmar pedido';
+        }
+    });
+
+    form.addEventListener('submit', async (event) => {
+        if (metodoSelect.value !== 'Mercado Pago') return;
+        event.preventDefault();
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Procesando...';
+
+        const formData = new FormData(form);
+        formData.set('metodo_pago', 'Mercado Pago');
+
+        try {
+            const response = await fetch('/pago/mercadopago/crear', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || 'No se pudo iniciar el pago');
+            }
+
+            const data = await response.json();
+            if (data.init_point) {
+                window.location.href = data.init_point;
+            } else {
+                throw new Error('No se recibió la URL de pago');
+            }
+        } catch (error) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Pagar con Mercado Pago';
+            window.showToast(error.message || 'No se pudo iniciar el pago. Intenta de nuevo.', 'error');
+        }
+    });
+})();
+</script>
 {% endblock %}
