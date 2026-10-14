@@ -10,10 +10,12 @@
 </head>
 <body class="auth-body">
     <main class="auth-container auth-container-with-back">
-        <a class="auth-back-link" href="{{ url_for('index') }}" aria-label="Regresar a la página principal" title="Regresar a la página principal">
-            <i class="fas fa-arrow-left" aria-hidden="true"></i>
-        </a>
-        <span class="auth-role">Acceso privado</span>
+        <div class="auth-panel-top">
+            <a class="auth-back-link" href="{{ url_for('index') }}" aria-label="Regresar a la página principal" title="Regresar a la página principal">
+                <i class="fas fa-arrow-left" aria-hidden="true"></i>
+            </a>
+            <span class="auth-role">Acceso privado</span>
+        </div>
         <h1>SNEAKER POINT</h1>
         <h2>Administración</h2>
         <p class="auth-brandline">Accede de forma segura para gestionar el catálogo, proveedores y ventas.</p>
