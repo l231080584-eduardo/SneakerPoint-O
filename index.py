@@ -299,6 +299,80 @@ def _cart_details():
     return items, total
 
 
+def _is_child_shoe(product):
+    text = " ".join(
+        str(product.get(field) or "")
+        for field in ("nombre", "descripcion", "estilo")
+    )
+    normalized = "".join(
+        character
+        for character in unicodedata.normalize("NFD", text.lower())
+        if not unicodedata.combining(character)
+    )
+    return any(term in normalized for term in ("infantil", "nino", "nina", "kids", "junior", "juvenil", "child"))
+
+
+def _shoe_size_options(child_sized):
+    half_sizes = range(47, 23, -1) if child_sized else range(60, 47, -1)
+    return [
+        f"{size // 2}{'.5' if size % 2 else ''}"
+        for size in half_sizes
+    ]
+
+
+def _locked_cart_items(cur):
+    cart_lines = []
+    product_totals = {}
+    for key, raw_quantity in session.get("cart", {}).items():
+        try:
+            product_id_text, size = key.split("_", 1)
+            product_id = int(product_id_text)
+            quantity = int(raw_quantity)
+        except (AttributeError, TypeError, ValueError):
+            raise ValueError("El carrito contiene un artículo inválido.")
+        if product_id < 1 or quantity < 1:
+            raise ValueError("El carrito contiene una cantidad inválida.")
+        cart_lines.append((product_id, size, quantity))
+        product_totals[product_id] = product_totals.get(product_id, 0) + quantity
+
+    products = {}
+    for product_id, requested_quantity in sorted(product_totals.items()):
+        _execute(
+            cur,
+            "SELECT id_producto, nombre, descripcion, estilo, precio, stock FROM productos WHERE id_producto = %s AND activo = TRUE FOR UPDATE",
+            (product_id,),
+        )
+        product = _fetchone(cur)
+        if not product or product["stock"] < requested_quantity:
+            raise ValueError(
+                f"No hay stock suficiente para {product['nombre'] if product else 'uno de los modelos'}."
+            )
+        products[product_id] = product
+
+    locked_items = []
+    for product_id, size, quantity in cart_lines:
+        product = products[product_id]
+        if size not in _shoe_size_options(_is_child_shoe(product)):
+            raise ValueError(f"La talla seleccionada no es válida para {product['nombre']}.")
+        locked_items.append((product, quantity, size))
+    return locked_items
+
+
+def _restore_order_stock(cur, order_id):
+    _execute(
+        cur,
+        """SELECT id_producto, SUM(cantidad) AS cantidad FROM ventas
+           WHERE id_pedido=%s GROUP BY id_producto""",
+        (order_id,),
+    )
+    for item in _fetchall(cur):
+        _execute(
+            cur,
+            "UPDATE productos SET stock = stock + %s WHERE id_producto = %s",
+            (item["cantidad"], item["id_producto"]),
+        )
+
+
 @app.route("/health")
 def health():
     return {"status": "ok"}, 200
@@ -857,9 +931,24 @@ def add_cart():
         size = request.form.get("talla", "").strip()
         if quantity < 1 or not size:
             raise ValueError
-        product = _db_query("SELECT id_producto FROM productos WHERE id_producto = %s AND activo = TRUE", (product_id,), fetch_one=True)
+        product = _db_query(
+            "SELECT id_producto, nombre, descripcion, estilo, stock FROM productos WHERE id_producto = %s AND activo = TRUE",
+            (product_id,), fetch_one=True,
+        )
         if not product:
             flash("Este modelo ya no está disponible.", "error")
+            return redirect(url_for("index"))
+        if size not in _shoe_size_options(_is_child_shoe(product)):
+            raise ValueError
+        cart_name = "cart" if session.get("loggedin") and session.get("role") == "customer" else "pending_items"
+        cart = session.get(cart_name, {})
+        existing_quantity = sum(
+            int(cart_quantity)
+            for cart_key, cart_quantity in cart.items()
+            if cart_key.split("_", 1)[0] == str(product_id)
+        )
+        if existing_quantity + quantity > product["stock"]:
+            flash(f"No hay existencias suficientes de {product['nombre']}.", "error")
             return redirect(url_for("index"))
     except (TypeError, ValueError):
         flash("Selecciona una talla y cantidad válidas.", "error")
@@ -941,18 +1030,9 @@ def comprar():
         conn = get_conn()
         cur = _cursor(conn)
         total = 0
-        locked_items = []
-        for key, quantity in session.get("cart", {}).items():
-            product_id_text, size = key.split("_", 1)
-            quantity = int(quantity)
-            if quantity < 1:
-                raise ValueError("Cantidad inválida.")
-            _execute(cur, "SELECT id_producto, nombre, precio, stock FROM productos WHERE id_producto = %s AND activo = TRUE FOR UPDATE", (int(product_id_text),))
-            product = _fetchone(cur)
-            if not product or product["stock"] < quantity:
-                raise ValueError(f"No hay stock suficiente para {product['nombre'] if product else 'uno de los modelos'}.")
+        locked_items = _locked_cart_items(cur)
+        for product, quantity, size in locked_items:
             total += product["precio"] * quantity
-            locked_items.append((product, quantity, size))
 
         _execute(cur,
                 """INSERT INTO pedidos
@@ -1048,18 +1128,9 @@ def pago_mp_crear():
         conn = get_conn()
         cur = _cursor(conn)
         total = 0
-        locked_items = []
-        for key, quantity in session.get("cart", {}).items():
-            product_id_text, size = key.split("_", 1)
-            quantity = int(quantity)
-            if quantity < 1:
-                raise ValueError("Cantidad inválida.")
-            _execute(cur, "SELECT id_producto, nombre, precio, stock FROM productos WHERE id_producto = %s AND activo = TRUE FOR UPDATE", (int(product_id_text),))
-            product = _fetchone(cur)
-            if not product or product["stock"] < quantity:
-                raise ValueError(f"No hay stock suficiente para {product['nombre'] if product else 'uno de los modelos'}.")
+        locked_items = _locked_cart_items(cur)
+        for product, quantity, size in locked_items:
             total += product["precio"] * quantity
-            locked_items.append((product, quantity, size))
 
         fields = {
             "nombre": request.form.get("nombre", "").strip(),
@@ -1092,6 +1163,7 @@ def pago_mp_crear():
                    VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                 (product["id_producto"], session["id_cliente"], order_id, quantity, line_total, size, "Mercado Pago"),
             )
+            _execute(cur, "UPDATE productos SET stock = stock - %s WHERE id_producto = %s", (quantity, product["id_producto"]))
         conn.commit()
     except ValueError as error:
         if conn:
@@ -1119,11 +1191,18 @@ def pago_mp_crear():
         preference_response = mp_sdk.preference().create(preference_data)
     except Exception:
         logging.exception("Could not create Mercado Pago preference")
+        _update_order_payment_status(order_id, None, "rejected")
         return jsonify({"error": "No se pudo conectar con Mercado Pago. Verifica el token y vuelve a intentarlo."}), 502
+
+    if not isinstance(preference_response, dict):
+        logging.error("Mercado Pago returned an invalid preference response")
+        _update_order_payment_status(order_id, None, "rejected")
+        return jsonify({"error": "Mercado Pago respondió con un formato inesperado. Vuelve a intentarlo."}), 502
 
     preference = preference_response.get("response")
     checkout_url = _mp_checkout_url(preference)
-    if not checkout_url:
+    preference_id = preference.get("id") if isinstance(preference, dict) else None
+    if not checkout_url or not preference_id:
         causes = preference.get("cause", []) if isinstance(preference, dict) else []
         details = "; ".join(
             cause["description"] for cause in causes
@@ -1137,11 +1216,12 @@ def pago_mp_crear():
         message = "Mercado Pago rechazó la solicitud."
         if detail:
             message = f"{message} {detail}"
+        _update_order_payment_status(order_id, None, "rejected")
         return jsonify({"error": message}), 502
 
     return jsonify({
         "init_point": checkout_url,
-        "preference_id": preference["id"],
+        "preference_id": preference_id,
         "order_id": order_id,
     })
 
@@ -1190,6 +1270,9 @@ def _update_order_payment_status(order_id, payment_id, status, customer_id=None,
         if status in {"pending", "in_process"} and order["estado"] != "cancelado":
             conn.commit()
             return True, "Pago pendiente"
+        if status in {"rejected", "cancelled"} and order["estado"] != "cancelado":
+            _restore_order_stock(cur, order_id)
+            _execute(cur, "UPDATE pedidos SET estado = 'cancelado' WHERE id_pedido = %s", (order_id,))
         conn.commit()
         return True, "Estado de pago procesado"
     except Exception:
@@ -1639,13 +1722,7 @@ def admin_estado_venta(order_id):
             flash("Un pedido cancelado no se puede reactivar.", "warning")
             return redirect(url_for("admin_ventas"))
         if state == "cancelado" and order["estado"] != "cancelado":
-            _execute(cur,
-                """UPDATE productos p SET stock=p.stock + lines.cantidad
-                   FROM (SELECT id_producto, SUM(cantidad) AS cantidad FROM ventas
-                         WHERE id_pedido=%s GROUP BY id_producto) lines
-                   WHERE p.id_producto=lines.id_producto""",
-                (order_id,),
-            )
+            _restore_order_stock(cur, order_id)
         _execute(cur, "UPDATE pedidos SET estado=%s WHERE id_pedido=%s", (state, order_id))
         conn.commit()
         flash("Estado de la venta actualizado.", "success")

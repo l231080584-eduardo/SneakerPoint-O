@@ -1,4 +1,6 @@
 <article class="product-card" data-product-card data-product-id="{{ p.id_producto }}">
+    {% set product_category_text = (p.nombre ~ ' ' ~ p.descripcion ~ ' ' ~ (p.estilo|default(''))) | lower %}
+    {% set child_sized = 'infantil' in product_category_text or 'niñ' in product_category_text or 'nino' in product_category_text or 'niña' in product_category_text or 'nina' in product_category_text or 'kids' in product_category_text or 'junior' in product_category_text or 'juvenil' in product_category_text or 'child' in product_category_text %}
     <div class="product-image-placeholder">
         {% if p.imagen_url %}
         <img src="{{ p.imagen_url }}" alt="Tenis {{ p.nombre }}" loading="lazy">
@@ -25,7 +27,7 @@
         <div class="product-pricing">
             <p class="product-price">${{ "{:,.2f}".format(p.precio) }} MXN</p>
             <p class="product-details {% if p.stock > 5 %}stock-available{% elif p.stock > 0 %}stock-low{% else %}stock-out{% endif %}">
-                {% if p.stock > 5 %}Disponible{% elif p.stock > 0 %}Últimos {{ p.stock }} pares{% else %}Agotado{% endif %}
+                {% if p.stock > 5 %}Disponible{% elif p.stock > 0 %}Últimos {{ p.stock }} pares{% else %}Sin stock{% endif %}
             </p>
         </div>
         <form action="{{ url_for('add_cart') }}" method="POST" class="product-actions">
@@ -34,9 +36,15 @@
                 <label for="talla_{{ p.id_producto }}">Talla</label>
                 <select name="talla" id="talla_{{ p.id_producto }}" required {% if p.stock < 1 %}disabled{% endif %}>
                     <option value="" disabled selected>Elegir</option>
+                    {% if child_sized %}
+                    {% for half_size in range(47, 23, -1) %}
+                    <option value="{{ half_size // 2 }}{% if half_size % 2 %}.5{% endif %}">{{ half_size // 2 }}{% if half_size % 2 %}.5{% endif %}</option>
+                    {% endfor %}
+                    {% else %}
                     {% for half_size in range(60, 47, -1) %}
                     <option value="{{ half_size // 2 }}{% if half_size % 2 %}.5{% endif %}">{{ half_size // 2 }}{% if half_size % 2 %}.5{% endif %}</option>
                     {% endfor %}
+                    {% endif %}
                 </select>
                 <label for="cantidad_{{ p.id_producto }}">Cant.</label>
                 <input type="number" name="cantidad" id="cantidad_{{ p.id_producto }}" value="1" min="1" max="{{ p.stock }}" required {% if p.stock < 1 %}disabled{% endif %}>

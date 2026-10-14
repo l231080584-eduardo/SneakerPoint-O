@@ -65,6 +65,20 @@
         if (metodoSelect.value !== 'Mercado Pago') return;
         event.preventDefault();
 
+        let paymentWindow;
+        try {
+            paymentWindow = window.open('about:blank', '_blank');
+            if (!paymentWindow) {
+                throw new Error('Permite las ventanas emergentes para abrir Mercado Pago en una pestaña nueva.');
+            }
+            paymentWindow.opener = null;
+            paymentWindow.document.title = 'Conectando con Mercado Pago';
+        } catch (error) {
+            if (paymentWindow && !paymentWindow.closed) paymentWindow.close();
+            window.showToast(error.message || 'No se pudo abrir una pestaña para Mercado Pago.', 'error');
+            return;
+        }
+
         submitBtn.disabled = true;
         submitBtn.textContent = 'Procesando...';
 
@@ -92,11 +106,14 @@
                 throw new Error(data.error || `No se pudo iniciar el pago (HTTP ${response.status}).`);
             }
             if (data.init_point) {
-                window.location.href = data.init_point;
+                paymentWindow.location.href = data.init_point;
+                paymentHelp.textContent = 'Mercado Pago se abrió en una pestaña nueva. Puedes volver a esta página cuando quieras.';
+                submitBtn.textContent = 'Pago abierto en otra pestaña';
             } else {
                 throw new Error('No se recibió la URL de pago');
             }
         } catch (error) {
+            if (paymentWindow && !paymentWindow.closed) paymentWindow.close();
             submitBtn.disabled = false;
             submitBtn.textContent = 'Pagar con Mercado Pago';
             window.showToast(error.message || 'No se pudo iniciar el pago. Intenta de nuevo.', 'error');

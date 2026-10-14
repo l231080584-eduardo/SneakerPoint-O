@@ -10,7 +10,7 @@ La tienda ofrece búsqueda en el encabezado, guía de tallas, controles de acces
 - Proveedores: información y solicitud de cuenta en `/proveedores`; administración habilita su acceso antes de usar `/proveedor/login`. Los productos enviados quedan privados hasta que administración los publica.
 - Administración: acceso en `/admin/login`, dashboard en `/admin/dashboard`, CRUD de tenis/proveedores, aprobación de propuestas e historial de ventas. Los contactos de proveedores solo aparecen en sus pantallas privadas.
 
-El checkout admite efectivo al recibir, transferencia y pagos con Mercado Pago. Los datos de tarjeta se capturan directamente en Mercado Pago; la tienda no los almacena.
+El checkout admite efectivo al recibir, transferencia y pagos con Mercado Pago. Los pagos externos se abren en una pestaña nueva y el inventario se reserva al crear el pedido; los pagos rechazados liberan la reserva. El catálogo ofrece tallas adultas e infantiles según el estilo o la descripción del modelo. Los datos de tarjeta se capturan directamente en Mercado Pago; la tienda no los almacena.
 
 ## Base de datos
 

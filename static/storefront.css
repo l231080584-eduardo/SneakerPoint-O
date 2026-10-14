@@ -13,7 +13,6 @@
     --green: #32704f;
     --shadow: 0 12px 32px rgba(25, 25, 25, .08);
 }
-
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body { margin: 0; color: var(--ink); background: var(--paper); font: 15px/1.55 'DM Sans', sans-serif; }
@@ -1960,14 +1959,15 @@ body.high-contrast .chatbot-form button, body.high-contrast .chatbot-launcher { 
 @media (max-width: 520px) {
     .chatbot-widget {
         right: max(12px, env(safe-area-inset-right));
-        bottom: max(12px, env(safe-area-inset-bottom));
+        bottom: calc(max(12px, env(safe-area-inset-bottom)) + 76px);
     }
     .chatbot-panel {
         position: fixed;
         right: max(8px, env(safe-area-inset-right));
-        bottom: calc(max(12px, env(safe-area-inset-bottom)) + 62px);
+        bottom: calc(max(12px, env(safe-area-inset-bottom)) + 134px);
         width: min(430px, calc(100vw - 16px));
-        height: min(650px, calc(100dvh - 100px));
+        height: min(650px, calc(100dvh - 180px));
+        min-height: min(360px, calc(100dvh - 200px));
     }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2235,7 +2235,6 @@ body.high-contrast .a11y-widget-toggle { color: #000 !important; background: #ff
     .dashboard-heading { flex-direction: column; align-items: stretch; }
     .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .provider-callout { flex-direction: column; align-items: flex-start; }
-    .a11y-widget { position: static; width: fit-content; margin: 0 12px 12px auto; }
 }
 @media (max-width: 480px) {
     .header-search { min-height: 40px; }
@@ -2245,4 +2244,17 @@ body.high-contrast .a11y-widget-toggle { color: #000 !important; background: #ff
     .dashboard-metrics { grid-template-columns: 1fr; }
     .cart-item { align-items: flex-start; flex-wrap: wrap; }
     .item-summary { margin-left: 70px; }
+}
+@media (max-width: 520px) {
+    .a11y-widget {
+        z-index: 111;
+        right: max(12px, env(safe-area-inset-right));
+        bottom: max(12px, env(safe-area-inset-bottom));
+        left: auto;
+    }
+    .a11y-widget-toggle span { display: none; }
+    .a11y-controls {
+        right: 0;
+        left: auto;
+    }
 }
