@@ -501,6 +501,23 @@ def search_products():
     return redirect(url_for("index", q=request.args.get("q", "")))
 
 
+@app.route("/favoritos")
+@customer_required
+def favoritos():
+    catalog_available = True
+    try:
+        productos = _db_query(
+            "SELECT * FROM productos WHERE activo = TRUE ORDER BY nombre",
+            fetch_all=True,
+        )
+    except Exception:
+        logging.exception("Could not load products for favorites")
+        productos = []
+        catalog_available = False
+        flash("No se pudo cargar el catálogo de favoritos.", "warning")
+    return render_template("favoritos.html", productos=productos, catalog_available=catalog_available)
+
+
 _CHATBOT_STOP_WORDS = {
     "a", "al", "algo", "algun", "alguna", "algunas", "algunos", "algun", "ayuda",
     "busca", "busco", "buscar", "buscando", "catalogo", "consulta", "consultar",
@@ -586,6 +603,24 @@ def _chatbot_catalog(message, history):
 
 def _chatbot_role_response(message, role, history):
     normalized = _chatbot_normalize(message)
+
+    if any(term in normalized for term in ("envio", "envios", "entrega", "paquete")):
+        return (
+            "En este momento no tenemos publicados los costos, tiempos ni la cobertura de envío. "
+            "En el carrito indicamos que se confirman al completar el pedido. "
+            "Para consultar tu caso, escríbenos a sneakerpoint@gmail.com o llama al 55 6127 2829."
+        )
+    if any(term in normalized for term in ("devolucion", "devolver", "reembolso", "cambio")):
+        return (
+            "No tenemos publicadas aquí las condiciones ni los plazos de cambios o devoluciones; "
+            "no quiero darte información incorrecta. Confirma tu caso con nuestro equipo en "
+            "sneakerpoint@gmail.com o al 55 6127 2829."
+        )
+    if any(term in normalized for term in ("horario", "horarios", "abren", "abierto", "atienden", "cierran")):
+        return (
+            "Aún no tenemos un horario de atención publicado. Puedes escribirnos a "
+            "sneakerpoint@gmail.com o llamar al 55 6127 2829 para confirmar la atención."
+        )
 
     if any(word in normalized for word in ("proveedor", "proveedores", "contacto del proveedor", "contactar al proveedor")):
         if role == "admin":
@@ -731,8 +766,6 @@ def chatbot_message():
     history = [item.strip()[:500] for item in history[-8:] if item.strip()]
 
     role = session.get("role", "guest") if session.get("loggedin") else "guest"
-    if role == "admin" and session.get("preview_user"):
-        role = "guest"
     if role not in {"guest", "customer", "provider", "admin"}:
         role = "guest"
 
@@ -1253,7 +1286,7 @@ def mis_pedidos():
 def admin_dashboard():
     try:
         summary = {
-            "products": _db_query("SELECT COUNT(*) AS value FROM productos", fetch_one=True)["value"],
+            "products": _db_query("SELECT COUNT(*) AS value FROM productos WHERE activo=TRUE", fetch_one=True)["value"],
             "providers": _db_query("SELECT COUNT(*) AS value FROM proveedores", fetch_one=True)["value"],
             "active_providers": _db_query("SELECT COUNT(*) AS value FROM proveedores WHERE activo=TRUE", fetch_one=True)["value"],
             "pending": _db_query("SELECT COUNT(*) AS value FROM productos_proveedor WHERE estado = 'pendiente'", fetch_one=True)["value"],
@@ -1286,13 +1319,6 @@ def admin_dashboard():
         summary = {"products": 0, "providers": 0, "active_providers": 0, "pending": 0, "sales": 0}
         proposals, recent_orders, providers = [], [], []
     return render_template("admin_dashboard.html", summary=summary, proposals=proposals, recent_orders=recent_orders, providers=providers)
-
-
-@app.route("/admin/vista-prueba", methods=["POST"])
-@admin_required
-def toggle_role_preview():
-    session["preview_user"] = not session.get("preview_user", False)
-    return redirect(url_for("admin_dashboard"))
 
 
 @app.route("/admin/productos")

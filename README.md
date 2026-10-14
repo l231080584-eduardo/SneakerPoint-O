@@ -2,6 +2,8 @@
 
 Tienda minorista de tenis con catálogo público. Los compradores crean una cuenta para comprar; los proveedores proponen productos desde un portal separado; administración revisa las propuestas antes de publicarlas y gestiona catálogo, proveedores y ventas.
 
+La tienda ofrece búsqueda en el encabezado, guía de tallas, controles de accesibilidad y favoritos guardados en el almacenamiento local del navegador. Los favoritos no se sincronizan entre dispositivos ni cuentas.
+
 ## Accesos
 
 - Compradores: catálogo público en `/`, registro/login, carrito, checkout e historial de pedidos.

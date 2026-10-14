@@ -7,10 +7,6 @@
     <div class="home-hero-copy">
         <h1>Encuentra tus tenis <span>favoritos.</span></h1>
         <p>Explora nuevos modelos, descubre distintos estilos y encuentra el par ideal para ti.</p>
-        <form action="{{ url_for('search_products') }}" method="GET" class="hero-search">
-            <input type="search" name="q" placeholder="Busca marcas o modelos..." aria-label="Buscar productos" value="{{ search_query|default('') }}">
-            <button type="submit">Buscar tenis</button>
-        </form>
     </div>
     <div class="home-hero-media">
         <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1100&q=85" alt="Tenis deportivo rojo con detalle blanco">
@@ -38,43 +34,12 @@
 </div>
 {% if search_query %}<p class="search-info">Resultados para <strong>{{ search_query }}</strong></p>{% endif %}
 
+{% include "_size_guide.html" %}
+
 {% if productos %}
 <div class="product-grid">
     {% for p in productos %}
-    <article class="product-card">
-        <div class="product-image-placeholder">
-            {% if p.imagen_url %}
-            <img src="{{ p.imagen_url }}" alt="Tenis {{ p.nombre }}" loading="lazy">
-            {% else %}
-            <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80" alt="Tenis {{ p.nombre }}" loading="lazy">
-            {% endif %}
-        </div>
-        <div class="product-info">
-            <h3 class="product-title">{{ p.nombre }}</h3>
-            <p class="product-brand">{{ p.marca }}{% if p.color %} · {{ p.color }}{% endif %}</p>
-            {% if p.descripcion %}<p class="product-description">{{ p.descripcion }}</p>{% endif %}
-            <div class="product-pricing">
-                <p class="product-price">${{ "{:,.2f}".format(p.precio) }} MXN</p>
-                <p class="product-details {% if p.stock > 5 %}stock-available{% elif p.stock > 0 %}stock-low{% else %}stock-out{% endif %}">
-                    {% if p.stock > 5 %}Disponible{% elif p.stock > 0 %}Últimos {{ p.stock }} pares{% else %}Agotado{% endif %}
-                </p>
-            </div>
-            <form action="{{ url_for('add_cart') }}" method="POST" class="product-actions">
-                <input type="hidden" name="id_producto" value="{{ p.id_producto }}">
-                <div class="talla-selector">
-                    <label for="talla_{{ p.id_producto }}">Talla</label>
-                    <select name="talla" id="talla_{{ p.id_producto }}" required {% if p.stock < 1 %}disabled{% endif %}>
-                        <option value="" disabled selected>Elegir</option>
-                        {% for talla in range(24, 31) %}<option value="{{ talla }}">{{ talla }}</option>{% endfor %}
-                        {% for talla in range(24, 30) %}<option value="{{ talla }}.5">{{ talla }}.5</option>{% endfor %}
-                    </select>
-                    <label for="cantidad_{{ p.id_producto }}">Cant.</label>
-                    <input type="number" name="cantidad" id="cantidad_{{ p.id_producto }}" value="1" min="1" max="{{ p.stock }}" required {% if p.stock < 1 %}disabled{% endif %}>
-                </div>
-                <button type="submit" class="btn-primary" {% if p.stock < 1 %}disabled{% endif %}><i class="fas fa-shopping-bag"></i> Agregar al carrito</button>
-            </form>
-        </div>
-    </article>
+    {% include "_product_card.html" %}
     {% endfor %}
 </div>
 {% else %}

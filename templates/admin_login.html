@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body class="auth-body">
+    <a class="auth-back-link" href="{{ url_for('index') }}" aria-label="Regresar a la página principal" title="Regresar a la página principal">
+        <i class="fas fa-arrow-left" aria-hidden="true"></i>
+    </a>
     <main class="auth-container">
         <span class="auth-role">Acceso privado</span>
         <h1>SNEAKER POINT</h1>
@@ -34,7 +37,6 @@
             </div>
             <button type="submit" class="btn-primary btn-full-width">Entrar al panel</button>
         </form>
-        <p class="switch-link"><a href="{{ url_for('index') }}"><i class="fas fa-arrow-left" aria-hidden="true"></i> Volver a la tienda</a></p>
         <p class="auth-brandline">Conexión segura · Acceso solo para personal autorizado.</p>
     </main>
 </body>

@@ -1,0 +1,38 @@
+<article class="product-card" data-product-card data-product-id="{{ p.id_producto }}">
+    <div class="product-image-placeholder">
+        {% if p.imagen_url %}
+        <img src="{{ p.imagen_url }}" alt="Tenis {{ p.nombre }}" loading="lazy">
+        {% else %}
+        <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80" alt="Tenis {{ p.nombre }}" loading="lazy">
+        {% endif %}
+        <button class="favorite-toggle" type="button" data-favorite-toggle aria-pressed="false" aria-label="Agregar {{ p.nombre }} a favoritos">
+            <i class="far fa-heart" aria-hidden="true"></i>
+        </button>
+    </div>
+    <div class="product-info">
+        <h3 class="product-title">{{ p.nombre }}</h3>
+        <p class="product-brand">{{ p.marca }}{% if p.color %} · {{ p.color }}{% endif %}</p>
+        {% if p.descripcion %}<p class="product-description">{{ p.descripcion }}</p>{% endif %}
+        <div class="product-pricing">
+            <p class="product-price">${{ "{:,.2f}".format(p.precio) }} MXN</p>
+            <p class="product-details {% if p.stock > 5 %}stock-available{% elif p.stock > 0 %}stock-low{% else %}stock-out{% endif %}">
+                {% if p.stock > 5 %}Disponible{% elif p.stock > 0 %}Últimos {{ p.stock }} pares{% else %}Agotado{% endif %}
+            </p>
+        </div>
+        <form action="{{ url_for('add_cart') }}" method="POST" class="product-actions">
+            <input type="hidden" name="id_producto" value="{{ p.id_producto }}">
+            <div class="talla-selector">
+                <label for="talla_{{ p.id_producto }}">Talla</label>
+                <select name="talla" id="talla_{{ p.id_producto }}" required {% if p.stock < 1 %}disabled{% endif %}>
+                    <option value="" disabled selected>Elegir</option>
+                    {% for half_size in range(60, 47, -1) %}
+                    <option value="{{ half_size // 2 }}{% if half_size % 2 %}.5{% endif %}">{{ half_size // 2 }}{% if half_size % 2 %}.5{% endif %}</option>
+                    {% endfor %}
+                </select>
+                <label for="cantidad_{{ p.id_producto }}">Cant.</label>
+                <input type="number" name="cantidad" id="cantidad_{{ p.id_producto }}" value="1" min="1" max="{{ p.stock }}" required {% if p.stock < 1 %}disabled{% endif %}>
+            </div>
+            <button type="submit" class="btn-primary" {% if p.stock < 1 %}disabled{% endif %}><i class="fas fa-shopping-bag" aria-hidden="true"></i> Agregar al carrito</button>
+        </form>
+    </div>
+</article>

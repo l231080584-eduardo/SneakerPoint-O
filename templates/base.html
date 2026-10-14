@@ -18,13 +18,19 @@
         <a href="{{ url_for('index') }}" class="logo" aria-label="Sneaker Point">
             <span class="logo-wordmark">SNEAKER POINT</span>
         </a>
-        {% if session.get('role') == 'admin' %}
-        <form class="role-switcher" method="POST" action="{{ url_for('toggle_role_preview') }}" aria-label="Previsualización de roles; no modifica los permisos de administración">
-            <span>Vista de prueba: <strong>{{ 'Usuario' if session.get('preview_user') else 'Admin' }}</strong></span>
-            <button type="submit" class="role-switcher-button">{{ 'Volver a vista Admin' if session.get('preview_user') else 'Probar vista usuario' }}</button>
+        {% if session.get('role') not in ['admin', 'provider'] %}
+        <form class="header-search" action="{{ url_for('search_products') }}" method="GET" role="search">
+            <label class="visually-hidden" for="site-search">Buscar tenis por marca o modelo</label>
+            <input id="site-search" type="search" name="q" placeholder="Buscar tenis..." value="{{ request.args.get('q', '') }}">
+            <button type="submit" aria-label="Buscar"><i class="fas fa-search" aria-hidden="true"></i></button>
         </form>
         {% endif %}
         <div class="user-actions">
+            {% if session.get('role') == 'customer' %}
+                <a class="header-favorites-link" href="{{ url_for('favoritos') }}" aria-label="Mis favoritos">
+                    <i class="fas fa-heart" aria-hidden="true"></i><span class="favorite-count" data-favorite-count hidden>0</span>
+                </a>
+            {% endif %}
             {% if session.get('role') == 'customer' %}
                 <a href="{{ url_for('carrito') }}" aria-label="Carrito"><i class="fas fa-shopping-bag" aria-hidden="true"></i><span class="cart-count">{{ session.get('cart', {}).values()|sum }}</span></a>
                 <a href="{{ url_for('logout') }}" aria-label="Cerrar sesión"><i class="fas fa-sign-out-alt" aria-hidden="true"></i></a>
@@ -42,7 +48,7 @@
     <nav>
         <p class="sidebar-heading">Menú principal</p>
         <ul class="sidebar-links">
-            {% if session.get('role') == 'admin' and not session.get('preview_user') %}
+            {% if session.get('role') == 'admin' %}
                 <li><a href="{{ url_for('admin_dashboard') }}"><i class="fas fa-chart-line" aria-hidden="true"></i> Panel de control</a></li>
                 <li><a href="{{ url_for('admin_productos') }}"><i class="fas fa-shoe-prints" aria-hidden="true"></i> Catálogo</a></li>
                 <li><a href="{{ url_for('admin_proveedores') }}"><i class="fas fa-truck" aria-hidden="true"></i> Gestión de proveedores</a></li>
@@ -60,8 +66,14 @@
             {% endif %}
         </ul>
     </nav>
-    <p class="sidebar-heading">Accesibilidad</p>
-    <section class="a11y-controls" id="a11y-controls" aria-label="Controles de accesibilidad">
+</aside>
+<button class="sidebar-backdrop" type="button" aria-label="Cerrar menú" tabindex="-1"></button>
+
+<div class="a11y-widget" data-a11y-widget>
+    <button class="a11y-widget-toggle" type="button" data-a11y-toggle aria-expanded="false" aria-controls="a11y-controls" aria-label="Abrir opciones de accesibilidad">
+        <i class="fas fa-universal-access" aria-hidden="true"></i><span>Accesibilidad</span>
+    </button>
+    <section class="a11y-controls" id="a11y-controls" aria-label="Controles de accesibilidad" hidden>
         <div class="a11y-text-controls" role="group" aria-label="Tamaño del texto">
             <span class="a11y-control-label">Tamaño del texto (hasta 200%)</span>
             <div class="a11y-button-row">
@@ -71,29 +83,17 @@
             </div>
         </div>
         <label class="a11y-switch">
-            <span>Modo nocturno</span>
-            <input type="checkbox" data-a11y-setting="darkMode">
-            <span class="a11y-switch-track" aria-hidden="true"></span>
+            <span>Modo nocturno</span><input type="checkbox" data-a11y-setting="darkMode"><span class="a11y-switch-track" aria-hidden="true"></span>
         </label>
         <label class="a11y-switch">
-            <span>Alto contraste</span>
-            <input type="checkbox" data-a11y-setting="highContrast">
-            <span class="a11y-switch-track" aria-hidden="true"></span>
+            <span>Alto contraste</span><input type="checkbox" data-a11y-setting="highContrast"><span class="a11y-switch-track" aria-hidden="true"></span>
         </label>
         <label class="a11y-switch">
-            <span>Tipografía legible</span>
-            <input type="checkbox" data-a11y-setting="dyslexiaFont">
-            <span class="a11y-switch-track" aria-hidden="true"></span>
-        </label>
-        <label class="a11y-switch">
-            <span>Foco muy visible</span>
-            <input type="checkbox" data-a11y-setting="focusHighlight">
-            <span class="a11y-switch-track" aria-hidden="true"></span>
+            <span>Tipografía legible</span><input type="checkbox" data-a11y-setting="dyslexiaFont"><span class="a11y-switch-track" aria-hidden="true"></span>
         </label>
         <span class="visually-hidden" data-a11y-status aria-live="polite"></span>
     </section>
-</aside>
-<button class="sidebar-backdrop" type="button" aria-label="Cerrar menú" tabindex="-1"></button>
+</div>
 
 <div class="main-container">
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -165,7 +165,7 @@
         <div class="chatbot-content">
             <div class="chatbot-messages" data-chatbot-messages role="log" aria-live="polite" aria-relevant="additions text" aria-atomic="false"></div>
             <div class="chatbot-suggestions" data-chatbot-suggestions aria-label="Preguntas sugeridas">
-                {% if session.get('role') == 'admin' and not session.get('preview_user') %}
+                {% if session.get('role') == 'admin' %}
                     <button type="button" data-chatbot-prompt="Consulta el catálogo disponible">Consultar catálogo</button>
                     <button type="button" data-chatbot-prompt="Resumen administrativo">Resumen administrativo</button>
                     <button type="button" data-chatbot-prompt="Directorio de proveedores">Directorio de proveedores</button>
@@ -180,6 +180,9 @@
                     <button type="button" data-chatbot-prompt="Consulta el catálogo disponible">Consultar catálogo</button>
                     <button type="button" data-chatbot-prompt="Cómo comprar">Cómo comprar</button>
                 {% endif %}
+                <button type="button" data-chatbot-prompt="¿Cómo funcionan los envíos?">Envíos</button>
+                <button type="button" data-chatbot-prompt="¿Cuál es la política de devoluciones?">Devoluciones</button>
+                <button type="button" data-chatbot-prompt="¿Cuáles son sus horarios?">Horarios</button>
             </div>
             <p class="chatbot-status" data-chatbot-status role="status" aria-live="polite"></p>
             <form class="chatbot-form" data-chatbot-form>
@@ -357,74 +360,6 @@
             });
         });
 
-        const wcagDialog = document.getElementById('wcag-principle-dialog');
-        if (wcagDialog) {
-            const principles = {
-                perceptible: {
-                    title: 'Perceptible',
-                    summary: 'La información y los componentes deben presentarse de maneras que las personas puedan percibir. Ofrece alternativas al contenido visual o auditivo y asegúrate de que el contraste permita distinguirlo.',
-                    inaccessible: '<img src="zapato.jpg">\n<p><span class="gris">Oferta especial</span></p>',
-                    accessible: '<img src="zapato.jpg" alt="Tenis deportivos rojos">\n<p class="alto-contraste">Oferta especial</p>',
-                    checklist: ['Las imágenes informativas tienen texto alternativo útil.', 'El audio y el video tienen alternativas como subtítulos.', 'El texto y los controles tienen contraste suficiente.']
-                },
-                operable: {
-                    title: 'Operable',
-                    summary: 'La interfaz debe poder usarse con distintos métodos de entrada. Las funciones, controles y navegación deben estar disponibles mediante teclado y ofrecer tiempo suficiente.',
-                    inaccessible: '<div onclick="comprar()">Comprar</div>\n<a href="#" tabindex="8">Continuar</a>',
-                    accessible: '<button type="button">Comprar</button>\n<a href="/carrito">Continuar</a>',
-                    checklist: ['Toda acción puede realizarse con teclado.', 'El foco es visible y sigue un orden lógico.', 'No hay límites de tiempo inesperados ni trampas de teclado.']
-                },
-                understandable: {
-                    title: 'Comprensible',
-                    summary: 'La información y el funcionamiento deben ser claros y predecibles. Usa lenguaje comprensible, etiquetas útiles y patrones consistentes al navegar o completar formularios.',
-                    inaccessible: '<input placeholder="Dato">\n<button>Enviar</button>',
-                    accessible: '<label for="email">Correo electrónico</label>\n<input id="email" type="email" required>\n<button>Enviar pedido</button>',
-                    checklist: ['Los campos tienen instrucciones y etiquetas claras.', 'Los errores indican cómo corregir el problema.', 'La navegación y los controles mantienen patrones consistentes.']
-                },
-                robust: {
-                    title: 'Robusto',
-                    summary: 'El contenido debe funcionar de manera fiable con navegadores y tecnologías de asistencia. Utiliza HTML semántico válido y expón correctamente el nombre, rol y estado de cada control.',
-                    inaccessible: '<div class="boton" onclick="guardar()">Guardar</div>',
-                    accessible: '<button type="button" aria-label="Guardar cambios">Guardar</button>',
-                    checklist: ['Los componentes usan elementos semánticos apropiados.', 'Los controles exponen nombre, rol y estado.', 'El contenido puede interpretarse con tecnologías de asistencia.']
-                },
-                inclusive: {
-                    title: 'Diseño inclusivo',
-                    summary: 'El diseño inclusivo considera distintas capacidades, contextos y preferencias desde el inicio para crear experiencias flexibles y útiles para más personas.',
-                    inaccessible: '<span style="color:#aaa">Continuar</span>\n<button style="width:24px">…</button>',
-                    accessible: '<button class="accion-principal">Continuar</button>\n<button aria-label="Más opciones">Más opciones</button>',
-                    checklist: ['Los controles son claros, distinguibles y tienen un tamaño cómodo.', 'La experiencia funciona en distintos tamaños y modos de interacción.', 'La información no depende únicamente del color o de un solo sentido.']
-                }
-            };
-            const title = wcagDialog.querySelector('#wcag-dialog-title');
-            const summary = wcagDialog.querySelector('#wcag-dialog-summary');
-            const inaccessibleCode = wcagDialog.querySelector('#wcag-inaccessible-code');
-            const accessibleCode = wcagDialog.querySelector('#wcag-accessible-code');
-            const checklist = wcagDialog.querySelector('#wcag-checklist');
-            document.querySelectorAll('[data-wcag-principle]').forEach((button) => {
-                button.addEventListener('click', () => {
-                    const principle = principles[button.dataset.wcagPrinciple];
-                    if (!principle) return;
-                    title.textContent = principle.title;
-                    summary.textContent = principle.summary;
-                    inaccessibleCode.textContent = principle.inaccessible;
-                    accessibleCode.textContent = principle.accessible;
-                    checklist.replaceChildren(...principle.checklist.map((item, index) => {
-                        const listItem = document.createElement('li');
-                        const label = document.createElement('label');
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.id = `wcag-check-${button.dataset.wcagPrinciple}-${index}`;
-                        label.htmlFor = checkbox.id;
-                        label.append(checkbox, document.createTextNode(` ${item}`));
-                        listItem.append(label);
-                        return listItem;
-                    }));
-                    showDialog(wcagDialog, button);
-                });
-            });
-        }
-
         const providerDirectory = document.querySelector('.provider-directory');
         if (providerDirectory) {
             const content = providerDirectory.querySelector('[data-provider-content]');
@@ -521,7 +456,7 @@
         const a11yStatus = document.querySelector('[data-a11y-status]');
         const fontScaleKey = 'sneakerpoint.a11y.fontScale';
         const preferencesKey = 'sneakerpoint.a11y.preferences';
-        const defaultPreferences = { darkMode: false, highContrast: false, dyslexiaFont: false, focusHighlight: false };
+        const defaultPreferences = { darkMode: false, highContrast: false, dyslexiaFont: false };
         const supportedScales = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200];
         let preferences = { ...defaultPreferences };
         let fontScale = 100;
@@ -547,7 +482,6 @@
             document.body.classList.toggle('dark-mode', preferences.darkMode);
             document.body.classList.toggle('high-contrast', preferences.highContrast);
             document.body.classList.toggle('dyslexia-font', preferences.dyslexiaFont);
-            document.body.classList.toggle('focus-highlight', preferences.focusHighlight);
             document.querySelectorAll('[data-a11y-setting]').forEach((control) => {
                 control.checked = preferences[control.dataset.a11ySetting] === true;
             });
@@ -565,6 +499,79 @@
 
         readPreferences();
         applyPreferences();
+
+        const a11yWidget = document.querySelector('[data-a11y-widget]');
+        const a11yToggle = a11yWidget.querySelector('[data-a11y-toggle]');
+        const a11yControls = a11yWidget.querySelector('.a11y-controls');
+        const setA11yOpen = (open) => {
+            a11yControls.hidden = !open;
+            a11yToggle.setAttribute('aria-expanded', String(open));
+            a11yToggle.setAttribute('aria-label', open ? 'Cerrar opciones de accesibilidad' : 'Abrir opciones de accesibilidad');
+            if (open) {
+                a11yControls.querySelector('button, input')?.focus();
+            } else {
+                a11yToggle.focus();
+            }
+        };
+        a11yToggle.addEventListener('click', () => setA11yOpen(a11yControls.hidden));
+        document.addEventListener('click', (event) => {
+            if (!a11yControls.hidden && !a11yWidget.contains(event.target)) setA11yOpen(false);
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !a11yControls.hidden) setA11yOpen(false);
+        });
+
+        const favoritesKey = 'sneakerpoint.favorites';
+        const favoriteCards = document.querySelectorAll('[data-product-card]');
+        const favoritesGrid = document.querySelector('[data-favorites-grid]');
+        const favoritesEmpty = document.querySelector('[data-favorites-empty]');
+        const favoritesCount = document.querySelector('[data-favorite-count]');
+        const readFavorites = () => {
+            try {
+                const saved = JSON.parse(localStorage.getItem(favoritesKey) || '[]');
+                return Array.isArray(saved) ? [...new Set(saved.filter((id) => /^\d+$/.test(String(id))).map(String))] : [];
+            } catch (error) {
+                console.warn('No fue posible leer los favoritos guardados.', error);
+                return [];
+            }
+        };
+        let favoriteIds = readFavorites();
+        const saveFavorites = () => {
+            try {
+                localStorage.setItem(favoritesKey, JSON.stringify(favoriteIds));
+            } catch (error) {
+                console.warn('No fue posible guardar los favoritos.', error);
+                window.showToast('No se pudieron guardar los favoritos en este navegador.', 'error');
+            }
+        };
+        const syncFavorites = () => {
+            favoriteCards.forEach((card) => {
+                const button = card.querySelector('[data-favorite-toggle]');
+                const isFavorite = favoriteIds.includes(card.dataset.productId);
+                button.setAttribute('aria-pressed', String(isFavorite));
+                button.setAttribute('aria-label', `${isFavorite ? 'Quitar' : 'Agregar'} ${card.querySelector('.product-title').textContent.trim()} ${isFavorite ? 'de' : 'a'} favoritos`);
+                button.querySelector('i').className = isFavorite ? 'fas fa-heart' : 'far fa-heart';
+                if (favoritesGrid) card.hidden = !isFavorite;
+            });
+            if (favoritesCount) {
+                favoritesCount.textContent = String(favoriteIds.length);
+                favoritesCount.hidden = favoriteIds.length === 0;
+            }
+            if (favoritesEmpty) favoritesEmpty.hidden = favoriteCards.length > 0 && favoriteIds.some((id) => [...favoriteCards].some((card) => card.dataset.productId === id));
+        };
+        favoriteCards.forEach((card) => {
+            card.querySelector('[data-favorite-toggle]').addEventListener('click', (event) => {
+                const button = event.currentTarget;
+                const productId = card.dataset.productId;
+                favoriteIds = favoriteIds.includes(productId)
+                    ? favoriteIds.filter((id) => id !== productId)
+                    : [...favoriteIds, productId];
+                saveFavorites();
+                syncFavorites();
+                window.showToast(button.getAttribute('aria-pressed') === 'true' ? 'Agregado a favoritos.' : 'Quitado de favoritos.');
+            });
+        });
+        syncFavorites();
 
         document.querySelectorAll('[data-font-step]').forEach((button) => {
             button.addEventListener('click', () => {
