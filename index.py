@@ -656,20 +656,22 @@ def _chatbot_role_response(message, role, history):
 
     if any(term in normalized for term in ("envio", "envios", "entrega", "paquete")):
         return (
-            "En este momento no tenemos publicados los costos, tiempos ni la cobertura de envío. "
-            "En el carrito indicamos que se confirman al completar el pedido. "
-            "Para consultar tu caso, escríbenos a sneakerpoint@gmail.com o llama al 55 6127 2829."
+            "¡Sí, hacemos envíos a todo México! El envío estándar cuesta $99 MXN y es gratis en compras "
+            "mayores a $1,500 MXN. El tiempo estimado de entrega es de 3 a 7 días hábiles, según tu ubicación. "
+            "Te compartiremos los datos de seguimiento cuando tu pedido salga."
         )
     if any(term in normalized for term in ("devolucion", "devolver", "reembolso", "cambio")):
         return (
-            "No tenemos publicadas aquí las condiciones ni los plazos de cambios o devoluciones; "
-            "no quiero darte información incorrecta. Confirma tu caso con nuestro equipo en "
-            "sneakerpoint@gmail.com o al 55 6127 2829."
+            "¡Sí, aceptamos cambios y devoluciones! Puedes solicitarlo dentro de los 30 días naturales "
+            "posteriores a la entrega. El calzado debe estar sin uso y en su caja original. Una vez aprobado "
+            "el reembolso, puede tardar de 5 a 10 días hábiles en reflejarse, según tu método de pago. "
+            "Escríbenos a sneakerpoint@gmail.com o llama al 55 6127 2829 para iniciar la solicitud."
         )
     if any(term in normalized for term in ("horario", "horarios", "abren", "abierto", "atienden", "cierran")):
         return (
-            "Aún no tenemos un horario de atención publicado. Puedes escribirnos a "
-            "sneakerpoint@gmail.com o llamar al 55 6127 2829 para confirmar la atención."
+            "Nuestro horario de atención es de lunes a viernes, de 9:00 a 18:00, y sábados de 10:00 a 14:00 "
+            "(hora del centro de México). Los domingos no hay atención. Puedes escribirnos en cualquier "
+            "momento a sneakerpoint@gmail.com y te responderemos dentro del horario de atención."
         )
 
     if any(word in normalized for word in ("proveedor", "proveedores", "contacto del proveedor", "contactar al proveedor")):
@@ -758,7 +760,11 @@ def _chatbot_role_response(message, role, history):
         return answer
 
     if any(word in normalized for word in ("devolucion", "devolver", "cambio", "garantia", "reembolso")):
-        return "La tienda no muestra una política de cambios o devoluciones confirmada. Para recibir orientación, escribe a sneakerpoint@gmail.com o llama al 55 6127 2829."
+        return (
+            "¡Sí, aceptamos cambios y devoluciones dentro de los 30 días naturales posteriores a la entrega! "
+            "El calzado debe estar sin uso y en su caja original. Escríbenos a sneakerpoint@gmail.com "
+            "o llama al 55 6127 2829 para iniciar la solicitud."
+        )
 
     if any(word in normalized for word in ("hola", "buenas", "buenos dias", "buenas tardes", "buenas noches")):
         name = session.get("nombre_cliente") or session.get("nombre_proveedor")
