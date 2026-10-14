@@ -14,7 +14,7 @@ El checkout admite efectivo al recibir, transferencia y pagos con Mercado Pago. 
 
 ## Base de datos
 
-Selecciona el motor mediante `DB_ENGINE`. Para PostgreSQL ejecuta [schema.sql](schema.sql); para SQL Server crea primero la base y ejecuta [schema_sqlserver.sql](schema_sqlserver.sql). Ambos esquemas crean las tablas de clientes, productos, proveedores, propuestas, pedidos y ventas.
+Selecciona el motor mediante `DB_ENGINE`. Para PostgreSQL ejecuta [schema.sql](schema.sql); para SQL Server crea primero la base y ejecuta [schema_sqlserver.sql](schema_sqlserver.sql). Ambos esquemas crean las tablas de clientes, productos, proveedores, propuestas, pedidos y ventas, y agregan el estilo del producto para organizar el catálogo por categoría. Para una base PostgreSQL existente, vuelve a ejecutar `schema.sql`; para una base SQL Server existente, ejecuta `IF COL_LENGTH('dbo.productos', 'estilo') IS NULL ALTER TABLE dbo.productos ADD estilo VARCHAR(40) NOT NULL CONSTRAINT DF_productos_estilo DEFAULT '';`.
 
 Con PostgreSQL y `psql` configurado:
 

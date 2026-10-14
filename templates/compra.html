@@ -30,7 +30,13 @@
         <aside class="cart-summary-box">
             <h2>Tu pedido</h2>
             {% for item in items %}
-            <div class="checkout-line"><span>{{ item.producto.nombre }} · {{ item.talla_seleccionada }} × {{ item.cantidad }}</span><strong>${{ "{:,.2f}".format(item.subtotal) }}</strong></div>
+            <div class="checkout-line">
+                <div class="checkout-item-info">
+                    <img class="checkout-item-image" src="{{ item.producto.imagen_url or 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80' }}" alt="Tenis {{ item.producto.nombre }}">
+                    <span>{{ item.producto.nombre }} · {{ item.talla_seleccionada }} × {{ item.cantidad }}</span>
+                </div>
+                <strong>${{ "{:,.2f}".format(item.subtotal) }}</strong>
+            </div>
             {% endfor %}
             <div class="summary-total"><span>Total</span><span>${{ "{:,.2f}".format(items|sum(attribute='subtotal')) }}</span></div>
         </aside>

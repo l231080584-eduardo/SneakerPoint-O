@@ -45,6 +45,7 @@ CREATE TABLE productos (
     id_producto INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
     nombre VARCHAR(180) NOT NULL,
     marca VARCHAR(120) NOT NULL,
+    estilo VARCHAR(40) NOT NULL DEFAULT '',
     descripcion VARCHAR(MAX) NOT NULL DEFAULT '',
     precio DECIMAL(12,2) NOT NULL DEFAULT 0 CHECK (precio >= 0),
     stock INT NOT NULL DEFAULT 0 CHECK (stock >= 0),

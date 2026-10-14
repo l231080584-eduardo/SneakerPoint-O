@@ -10,7 +10,7 @@
         {% for item in items %}
         <article class="cart-item">
             <div class="item-details-group">
-                <div class="item-image-small"><i class="fas fa-shoe-prints"></i></div>
+                <div class="item-image-small"><img src="{{ item.producto.imagen_url or 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80' }}" alt="Tenis {{ item.producto.nombre }}"></div>
                 <div>
                     <p class="item-name">{{ item.producto.nombre }}</p>
                     <p class="item-price-unit">{{ item.producto.marca }} · Talla {{ item.talla_seleccionada }}</p>

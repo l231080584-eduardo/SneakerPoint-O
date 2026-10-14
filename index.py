@@ -32,6 +32,7 @@ DB_PASS = os.getenv("DB_PASS")
 
 DB_ENGINE = os.getenv("DB_ENGINE", "postgres").strip().lower()
 DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 17 for SQL Server")
+PRODUCT_STYLES = ("Deportivo", "Casual", "Moda", "Infantil", "Otro")
 if DB_ENGINE not in {"postgres", "sqlserver"}:
     raise ValueError("DB_ENGINE debe ser 'postgres' o 'sqlserver'.")
 
@@ -311,8 +312,10 @@ def index():
         if query:
             term = f"%{query}%"
             productos = _db_query(
-                "SELECT * FROM productos WHERE activo = TRUE AND (marca ILIKE %s OR nombre ILIKE %s) ORDER BY nombre",
-                (term, term), fetch_all=True,
+                """SELECT * FROM productos WHERE activo = TRUE
+                   AND (marca ILIKE %s OR nombre ILIKE %s OR descripcion ILIKE %s OR estilo ILIKE %s)
+                   ORDER BY nombre""",
+                (term, term, term, term), fetch_all=True,
             )
         else:
             productos = _db_query("SELECT * FROM productos WHERE activo = TRUE ORDER BY nombre", fetch_all=True)
@@ -1384,7 +1387,7 @@ def admin_productos():
         productos = _db_query("SELECT * FROM productos WHERE activo=TRUE ORDER BY nombre", fetch_all=True)
     except Exception:
         productos = []
-    return render_template("admin_productos.html", productos=productos)
+    return render_template("admin_productos.html", productos=productos, estilos=PRODUCT_STYLES)
 
 
 @app.route("/admin/productos/nuevo", methods=["POST"])
@@ -1395,8 +1398,8 @@ def admin_producto_nuevo():
         return redirect(url_for("admin_productos"))
     try:
         _db_query(
-            """INSERT INTO productos (nombre, marca, descripcion, precio, stock, color, talla, imagen_url, activo)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)""", values, commit=True,
+            """INSERT INTO productos (nombre, marca, estilo, descripcion, precio, stock, color, talla, imagen_url, activo)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, TRUE)""", values, commit=True,
         )
         flash("Producto publicado en el catálogo.", "success")
     except Exception:
@@ -1407,6 +1410,7 @@ def admin_producto_nuevo():
 def _product_form_values():
     nombre = request.form.get("nombre", "").strip()
     marca = request.form.get("marca", "").strip()
+    estilo = request.form.get("estilo", "").strip()
     descripcion = request.form.get("descripcion", "").strip()
     color = request.form.get("color", "").strip()
     talla = request.form.get("talla", "").strip()
@@ -1414,11 +1418,18 @@ def _product_form_values():
     try:
         precio = float(request.form.get("precio", ""))
         stock = int(request.form.get("stock", ""))
-        if not nombre or not marca or not math.isfinite(precio) or precio < 0 or stock < 0:
+        if (
+            not nombre
+            or not marca
+            or estilo not in PRODUCT_STYLES
+            or not math.isfinite(precio)
+            or precio < 0
+            or stock < 0
+        ):
             raise ValueError
-        return (nombre, marca, descripcion, precio, stock, color, talla, imagen_url)
+        return (nombre, marca, estilo, descripcion, precio, stock, color, talla, imagen_url)
     except (TypeError, ValueError):
-        flash("Verifica nombre, marca, precio y existencias.", "error")
+        flash("Verifica nombre, marca, estilo, precio y existencias.", "error")
         return None
 
 
@@ -1429,7 +1440,7 @@ def admin_producto_editar(product_id):
     if values:
         try:
             _db_query(
-                """UPDATE productos SET nombre=%s, marca=%s, descripcion=%s, precio=%s, stock=%s,
+                """UPDATE productos SET nombre=%s, marca=%s, estilo=%s, descripcion=%s, precio=%s, stock=%s,
                    color=%s, talla=%s, imagen_url=%s WHERE id_producto=%s""",
                 values + (product_id,), commit=True,
             )

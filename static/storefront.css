@@ -284,7 +284,12 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .cart-items-list, .cart-summary-box { padding: 18px; }
 .cart-item { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--line); }
 .item-details-group { display: flex; align-items: center; gap: 12px; }
-.item-image-small { width: 58px; height: 58px; display: grid; place-items: center; color: var(--orange-dark); background: var(--orange-light); }
+.item-image-small { width: 58px; height: 58px; flex: 0 0 58px; overflow: hidden; display: grid; place-items: center; color: var(--orange-dark); background: var(--orange-light); }
+.item-image-small img { width: 100%; height: 100%; object-fit: cover; }
+.checkout-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.checkout-item-info { min-width: 0; display: flex; align-items: center; gap: 10px; }
+.checkout-item-info span { overflow-wrap: anywhere; }
+.checkout-item-image { width: 48px; height: 48px; flex: 0 0 48px; object-fit: cover; }
 .item-subtotal, .summary-total { font-weight: 700; }
 .cart-summary-box h2 { margin-top: 0; font-size: 19px; }
 .cart-summary-box .btn-primary { width: 100%; }
@@ -2230,12 +2235,12 @@ body.high-contrast .a11y-widget-toggle { color: #000 !important; background: #ff
     .dashboard-heading { flex-direction: column; align-items: stretch; }
     .dashboard-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .provider-callout { flex-direction: column; align-items: flex-start; }
+    .a11y-widget { position: static; width: fit-content; margin: 0 12px 12px auto; }
 }
 @media (max-width: 480px) {
     .header-search { min-height: 40px; }
     .header-search input { font-size: 14px; }
     .user-actions { gap: 8px; }
-    .a11y-widget { bottom: max(12px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); }
     .a11y-widget-toggle { min-height: 44px; padding: 8px 11px; }
     .dashboard-metrics { grid-template-columns: 1fr; }
     .cart-item { align-items: flex-start; flex-wrap: wrap; }
