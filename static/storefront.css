@@ -267,6 +267,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .form-row .form-group { flex: 1; }
 .auth-body { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: #f7f7f5; }
 .auth-container { width: min(100%, 460px); padding: 32px; background: white; border: 1px solid var(--line); box-shadow: var(--shadow); text-align: left; }
+.auth-container-with-back { position: relative; padding-top: 64px; }
 .auth-container h1 { margin: 0 0 5px; font-size: 27px; }
 .auth-container h2 { margin: 0 0 8px; font-size: 20px; }
 .auth-container > p, .auth-brandline { color: var(--muted); }
@@ -2143,12 +2144,12 @@ img {
 }
 .a11y-controls[hidden] { display: none !important; }
 .auth-back-link {
-    position: fixed;
+    position: absolute;
     z-index: 20;
-    top: max(20px, env(safe-area-inset-top));
-    left: max(20px, env(safe-area-inset-left));
-    width: 44px;
-    height: 44px;
+    top: clamp(12px, 3vw, 16px);
+    left: clamp(12px, 3vw, 16px);
+    width: clamp(32px, 8vw, 38px);
+    height: clamp(32px, 8vw, 38px);
     display: grid;
     place-items: center;
     border: 1px solid #767676;

@@ -526,6 +526,8 @@
         const favoritesGrid = document.querySelector('[data-favorites-grid]');
         const favoritesEmpty = document.querySelector('[data-favorites-empty]');
         const favoritesCount = document.querySelector('[data-favorite-count]');
+        const isCustomer = {{ (session.get('loggedin') and session.get('role') == 'customer')|tojson }};
+        const pendingFavoriteIds = {{ pending_favorites|default([], true)|tojson }};
         const readFavorites = () => {
             try {
                 const saved = JSON.parse(localStorage.getItem(favoritesKey) || '[]');
@@ -535,8 +537,12 @@
                 return [];
             }
         };
-        let favoriteIds = readFavorites();
+        let favoriteIds = isCustomer ? readFavorites() : [];
+        if (isCustomer && pendingFavoriteIds.length) {
+            favoriteIds = [...new Set([...favoriteIds, ...pendingFavoriteIds.map(String)])];
+        }
         const saveFavorites = () => {
+            if (!isCustomer) return;
             try {
                 localStorage.setItem(favoritesKey, JSON.stringify(favoriteIds));
             } catch (error) {
@@ -561,6 +567,7 @@
         };
         favoriteCards.forEach((card) => {
             card.querySelector('[data-favorite-toggle]').addEventListener('click', (event) => {
+                if (!isCustomer) return;
                 const button = event.currentTarget;
                 const productId = card.dataset.productId;
                 favoriteIds = favoriteIds.includes(productId)
@@ -571,7 +578,10 @@
                 window.showToast(button.getAttribute('aria-pressed') === 'true' ? 'Agregado a favoritos.' : 'Quitado de favoritos.');
             });
         });
-        syncFavorites();
+        if (isCustomer) {
+            if (pendingFavoriteIds.length) saveFavorites();
+            syncFavorites();
+        }
 
         document.querySelectorAll('[data-font-step]').forEach((button) => {
             button.addEventListener('click', () => {

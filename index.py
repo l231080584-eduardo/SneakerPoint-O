@@ -319,7 +319,15 @@ def index():
     except Exception:
         productos = []
         flash("El catálogo no está disponible por el momento.", "warning")
-    return render_template("index.html", productos=productos, search_query=query)
+    pending_favorites = []
+    if session.get("loggedin") and session.get("role") == "customer":
+        pending_favorites = session.pop("pending_favorites", [])
+    return render_template(
+        "index.html",
+        productos=productos,
+        search_query=query,
+        pending_favorites=pending_favorites,
+    )
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -339,11 +347,14 @@ def login():
             if legacy:
                 _db_query("UPDATE clientes SET contraseña = %s WHERE id_clientes = %s", (generate_password_hash(password), customer["id_clientes"]), commit=True)
             pending_items = session.pop("pending_items", {})
+            pending_favorites = session.pop("pending_favorites", [])
             session.clear()
             session.update({"loggedin": True, "role": "customer", "id_cliente": customer["id_clientes"], "nombre_cliente": customer["nombre"]})
             if pending_items:
                 session["cart"] = pending_items
-            flash(f"Hola, {customer['nombre']}. Ya puedes completar tu compra.", "success")
+            if pending_favorites:
+                session["pending_favorites"] = pending_favorites
+            flash(f"Hola, {customer['nombre']}. Ya puedes continuar.", "success")
             return redirect(safe_next("index"))
         flash("Correo o contraseña incorrectos.", "error")
     return render_template("login.html")
@@ -499,6 +510,45 @@ def logout():
 @app.route("/search")
 def search_products():
     return redirect(url_for("index", q=request.args.get("q", "")))
+
+
+@app.route("/add_favorite", methods=["POST"])
+def add_favorite():
+    try:
+        product_id = int(request.form.get("id_producto", ""))
+        product = _db_query(
+            "SELECT id_producto FROM productos WHERE id_producto = %s AND activo = TRUE",
+            (product_id,),
+            fetch_one=True,
+        )
+    except (TypeError, ValueError):
+        flash("No se pudo identificar este modelo.", "error")
+        return redirect(url_for("index"))
+    except Exception:
+        logging.exception("Could not verify product for favorites")
+        flash("No se pudo guardar este modelo en favoritos.", "error")
+        return redirect(url_for("index"))
+    if not product:
+        flash("Este modelo ya no está disponible.", "error")
+        return redirect(url_for("index"))
+
+    pending_favorites = session.get("pending_favorites", [])
+    if not isinstance(pending_favorites, list):
+        pending_favorites = []
+    pending_favorites = list(dict.fromkeys(
+        str(favorite_id)
+        for favorite_id in pending_favorites
+        if str(favorite_id).isdigit()
+    ))
+    favorite_id = str(product_id)
+    if favorite_id not in pending_favorites:
+        pending_favorites.append(favorite_id)
+    session["pending_favorites"] = pending_favorites
+
+    if not session.get("loggedin") or session.get("role") != "customer":
+        flash("Inicia sesión para guardar este modelo en favoritos.", "warning")
+        return redirect(url_for("login", next=url_for("index")))
+    return redirect(url_for("index"))
 
 
 @app.route("/favoritos")

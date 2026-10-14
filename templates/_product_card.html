@@ -5,9 +5,18 @@
         {% else %}
         <img src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=900&q=80" alt="Tenis {{ p.nombre }}" loading="lazy">
         {% endif %}
+        {% if session.get('loggedin') and session.get('role') == 'customer' %}
         <button class="favorite-toggle" type="button" data-favorite-toggle aria-pressed="false" aria-label="Agregar {{ p.nombre }} a favoritos">
             <i class="far fa-heart" aria-hidden="true"></i>
         </button>
+        {% else %}
+        <form action="{{ url_for('add_favorite') }}" method="POST">
+            <input type="hidden" name="id_producto" value="{{ p.id_producto }}">
+            <button class="favorite-toggle" type="submit" data-favorite-toggle aria-pressed="false" aria-label="Inicia sesión para guardar {{ p.nombre }} en favoritos">
+                <i class="far fa-heart" aria-hidden="true"></i>
+            </button>
+        </form>
+        {% endif %}
     </div>
     <div class="product-info">
         <h3 class="product-title">{{ p.nombre }}</h3>
