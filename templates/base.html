@@ -150,6 +150,7 @@
 </footer>
 <a class="admin-secret-access" data-admin-access href="{{ url_for('admin_login') }}" hidden>Acceso administrativo</a>
 <div class="toast-container" data-toast-container aria-live="polite" aria-atomic="false"></div>
+{% if session.get('role') not in ['admin', 'provider'] %}
 <div class="chatbot-widget" data-chatbot>
     <section class="chatbot-panel" id="chatbot-panel" data-chatbot-panel role="dialog" aria-modal="false" aria-labelledby="chatbot-title" hidden>
         <header class="chatbot-header">
@@ -197,6 +198,7 @@
         <i class="fas fa-comments" aria-hidden="true"></i><span>Ayuda</span>
     </button>
 </div>
+{% endif %}
 <script>
     (() => {
         const toastContainer = document.querySelector('[data-toast-container]');

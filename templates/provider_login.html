@@ -24,10 +24,11 @@
     {% endwith %}
     <form method="POST" class="standard-form">
         <div class="form-group"><label for="correo">Correo registrado</label><input id="correo" name="correo" type="email" autocomplete="username" required></div>
-        <div class="form-group"><label for="contraseña">Contraseña</label><input id="contraseña" name="contraseña" type="password" autocomplete="current-password" minlength="8" maxlength="20" required></div>
+        <div class="form-group"><label for="contraseña">Contraseña</label><div class="password-input-wrap"><input id="contraseña" name="contraseña" type="password" autocomplete="current-password" minlength="8" maxlength="20" required><button class="password-toggle" type="button" data-password-toggle aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña"><i class="fas fa-eye" aria-hidden="true"></i></button></div></div>
         <button class="btn-primary btn-full-width" type="submit">Entrar al portal</button>
     </form>
     <p class="switch-link">¿Nuevo proveedor? <a href="{{ url_for('provider_register') }}">Solicita una cuenta</a></p>
 </main>
+<script src="{{ url_for('static', filename='password-toggle.js') }}"></script>
 </body>
 </html>

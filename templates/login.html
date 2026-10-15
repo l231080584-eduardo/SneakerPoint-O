@@ -38,7 +38,10 @@
             </div>
             <div class="form-group">
                 <label for="contraseña">Contraseña:</label>
-                <input type="password" id="contraseña" name="contraseña" minlength="8" maxlength="20" required>
+                <div class="password-input-wrap">
+                    <input type="password" id="contraseña" name="contraseña" minlength="8" maxlength="20" required>
+                    <button class="password-toggle" type="button" data-password-toggle aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña"><i class="fas fa-eye" aria-hidden="true"></i></button>
+                </div>
             </div>
             <button type="submit" class="btn-primary btn-full-width">Entrar</button>
         </form>
@@ -48,5 +51,6 @@
             <a href="{{ url_for('provider_login') }}">Acceso proveedor</a><br>
         </p>
     </main>
+    <script src="{{ url_for('static', filename='password-toggle.js') }}"></script>
 </body>
 </html>

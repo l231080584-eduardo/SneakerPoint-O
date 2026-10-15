@@ -276,6 +276,11 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .auth-role { display: inline-block; margin-bottom: 12px; padding: 4px 8px; color: var(--ink); background: var(--orange-light); font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .switch-link { margin-top: 18px; color: var(--muted); font-size: 12px; }
 .switch-link a { color: var(--orange-dark); font-weight: 700; }
+.password-input-wrap { position: relative; }
+.password-input-wrap input { padding-right: 44px !important; }
+.password-toggle { position: absolute; top: 50%; right: 8px; display: grid; width: 32px; height: 32px; place-items: center; padding: 0; border: 0; color: var(--muted); background: transparent; cursor: pointer; transform: translateY(-50%); }
+.password-toggle:focus-visible { outline: 2px solid var(--orange); outline-offset: 1px; }
+body.high-contrast.auth-body .password-toggle { color: #fff; }
 
 .page-title { margin: 0 0 22px; padding-bottom: 12px; border-bottom: 1px solid var(--line); font-size: 26px; }
 .cart-layout { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 20px; align-items: start; }
