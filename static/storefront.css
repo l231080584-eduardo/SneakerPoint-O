@@ -2252,7 +2252,8 @@ body.high-contrast .a11y-widget-toggle { color: #000 !important; background: #ff
         bottom: max(12px, env(safe-area-inset-bottom));
         left: auto;
     }
-    .a11y-widget-toggle span { display: none; }
+    .a11y-widget-toggle { font-size: 15px; }
+    .a11y-widget-toggle span { display: inline; }
     .a11y-controls {
         right: 0;
         left: auto;
