@@ -263,8 +263,8 @@ def safe_next(default_endpoint):
     return url_for(default_endpoint)
 
 
-def _cart_details():
-    cart = session.get("cart", {})
+def _cart_details(cart_name="cart"):
+    cart = session.get(cart_name, {})
     if not cart:
         return [], 0
     product_ids = []
@@ -385,11 +385,14 @@ def index():
     try:
         if query:
             term = f"%{query}%"
+            search_style_clause = " OR estilo ILIKE %s" if _chatbot_has_style_column() else ""
+            search_parameters = (term, term, term, term) if search_style_clause else (term, term, term)
             productos = _db_query(
-                """SELECT * FROM productos WHERE activo = TRUE
-                   AND (marca ILIKE %s OR nombre ILIKE %s OR descripcion ILIKE %s OR estilo ILIKE %s)
-                   ORDER BY nombre""",
-                (term, term, term, term), fetch_all=True,
+                "SELECT * FROM productos WHERE activo = TRUE "
+                "AND (marca ILIKE %s OR nombre ILIKE %s OR descripcion ILIKE %s"
+                + search_style_clause
+                + ") ORDER BY nombre",
+                search_parameters, fetch_all=True,
             )
         else:
             productos = _db_query("SELECT * FROM productos WHERE activo = TRUE ORDER BY nombre", fetch_all=True)
@@ -660,6 +663,10 @@ _CHATBOT_STOP_WORDS = {
     "menos", "menor", "hasta", "maximo",
     "saber", "tenis", "tienen", "tienes", "un", "una", "unas", "unos", "ver", "y",
     "cuestan", "costar", "costaria", "costarian", "serian", "salen", "sale",
+    "marca", "marcas", "cual", "cuales", "son", "estan", "están", "tipo", "tipos",
+    "estilo", "estilos", "tenis", "calzado", "zapatos", "producto", "productos",
+    "existe", "existen", "tendencia", "tendencias", "moda", "casual", "casuales",
+    "deportivo", "deportivos", "deportiva", "deportivas", "infantil", "infantiles",
 }
 
 _CHATBOT_ADULT_SIZE_GUIDE = (
@@ -743,7 +750,7 @@ def _chatbot_classify_intents(message):
         ("hours", r"\b(horario|horarios|abren|abierto|atienden|cierran|domingo|domingos)\b"),
         ("shipping", r"\b(envio|envios|entrega|entregas|paquete|paqueteria|rastreo|rastrear|seguimiento|tarda|tardar|tardara|llegar|llegue|yegar)\b"),
         ("returns", r"\b(devolucion|devolver|devoluciones|cambio|cambiar|reembolso|garantia|no me queda|no le queda)\b"),
-        ("size", r"\b(guia de tallas?|medir|equivalencia|equivalencias|que talla soy|saber que talla|talla corresponde|medida del pie|largo del pie|pie mide|mido \d|mx\s*\d{2})\b"),
+        ("size", r"\b(guia de tallas?|medir|equivalencia|equivalencias|que talla soy|saber que talla|talla corresponde|medida del pie|largo del pie|pie mide|mido \d|mx\s*\d{2}|\d{1,3}(?:[.,]\d{1,2})?\s*pulgadas?)\b"),
         ("payment", r"\b(pago|pagos|pagar|metodos de pago|transferencia|efectivo|mercado pago|tarjeta|aceptan .{0,25} pagar)\b"),
         ("location", r"\b(ubicacion|direccion|donde se encuentran|donde estan|sucursal|tienda fisica)\b"),
         ("contact", r"\b(contacto|contactar|contactarlos?|telefono|correo|email|escribirles|llamarles)\b"),
@@ -752,16 +759,27 @@ def _chatbot_classify_intents(message):
         ("promotions", r"\b(promocion|promociones|descuento|descuentos|oferta|ofertas)\b"),
         ("social", r"\b(que redes|cuales redes|red social|pagina de facebook|pagina oficial)\b"),
         ("purchase", r"\b(como (?:puedo )?comprar|como hago una compra)\b"),
+        ("purchase", r"\b(como (?:puedo )?)?(?:agregar|agrego|anadir|anado|poner).{0,35}\bcarrito\b"),
         ("clarification", r"\b(no entendi|no entiendo|respuesta anterior|que quisiste decir|no comprendi)\b"),
     )
     for intent, pattern in patterns:
         if re.search(pattern, normalized) and intent not in intents:
             intents.append(intent)
 
-    if re.search(r"\b(mi carrito|carrito de compras|que hay en el carrito|mi compra)\b", normalized):
+    if re.search(
+        r"\b(?:mi carrito|carrito de compras|que hay en (?:(?:mi|el) )?carrito|"
+        r"que (?:tenis|productos?) tengo en (?:(?:mi|el) )?carrito|ver (?:(?:mi|el) )?carrito|"
+        r"contenido del carrito|mi compra)\b",
+        normalized,
+    ) and "purchase" not in intents:
         intents.append("cart")
     if (
-        re.search(r"\b(mis pedidos|mis compras|mi pedido|estado del pedido|seguimiento de mi pedido|rastrear mi pedido)\b", normalized)
+        re.search(
+            r"\b(mis pedidos|mis compras|mi pedido|estado del pedido|seguimiento de mi pedido|"
+            r"rastrear mi pedido|cuantas? compras he hecho|cuantos? pedidos he hecho|"
+            r"historial de compras|historial de pedidos)\b",
+            normalized,
+        )
         and not re.search(r"\b(cuanto tarda|cuando llega|fecha de entrega)\b", normalized)
     ):
         intents.append("orders")
@@ -774,9 +792,11 @@ def _chatbot_classify_intents(message):
     ))
     size_is_product_filter = bool(
         re.search(r"\btalla\s*\d", normalized)
-        and not re.search(r"\b(guia|equivalencia|medida|pie)\b", normalized)
+        and not re.search(r"\b(guia|equivalencia|medida|pie|pulgadas?)\b", normalized)
     )
-    if has_product_terms or size_is_product_filter:
+    if (has_product_terms or size_is_product_filter) and not any(
+        intent in intents for intent in ("cart", "orders", "purchase")
+    ):
         intents.append("catalog")
 
     if re.search(r"^\s*(hola|ola|buenas(?:\s+(?:tardes|noches))?|buenos dias)\b", normalized):
@@ -803,6 +823,24 @@ def _chatbot_previous_catalog_terms(history):
     return []
 
 
+def _chatbot_has_style_column():
+    if DB_ENGINE == "sqlserver":
+        result = _db_query(
+            "SELECT CASE WHEN COL_LENGTH('dbo.productos', 'estilo') IS NULL THEN 0 ELSE 1 END AS available",
+            fetch_one=True,
+        )
+    else:
+        result = _db_query(
+            """SELECT EXISTS (
+                   SELECT 1 FROM information_schema.columns
+                   WHERE table_schema = current_schema()
+                     AND table_name = 'productos' AND column_name = 'estilo'
+               ) AS available""",
+            fetch_one=True,
+        )
+    return bool(result["available"])
+
+
 def _chatbot_catalog(message, history):
     normalized = _chatbot_normalize(message)
     price_match = re.search(
@@ -814,30 +852,62 @@ def _chatbot_catalog(message, history):
     requested_size = size_match.group(1).replace(",", ".") if size_match else None
     asking_sizes = bool(re.search(r"\btallas?\b", normalized)) and requested_size is None
 
-    tokens = [token for token in _chatbot_tokens(message) if not token.isdigit()]
+    category_patterns = (
+        ("Infantil", r"\b(infantil(?:es)?|ninos?|ninas?|kids|junior|juvenil)\b",
+         ("infantil", "infantiles", "niño", "niños", "nino", "ninos", "niña", "niñas", "nina", "ninas", "kids", "junior", "juvenil")),
+        ("Deportivo", r"\b(deportivo|deportivos|deportiva|deportivas|deporte)\b",
+         ("deportivo", "deportiva", "deporte")),
+        ("Casual", r"\b(casual|casuales)\b", ("casual", "casuales")),
+        ("Moda", r"\b(moda|tendencia|tendencias|de moda)\b", ("moda", "tendencia", "tendencias")),
+    )
+    matched_category = next(
+        ((style, search_terms) for style, pattern, search_terms in category_patterns
+         if re.search(pattern, normalized)),
+        None,
+    )
+    category, category_search_terms = matched_category or (None, ())
+    style_available = _chatbot_has_style_column() if category else False
+    tokens = [
+        token for token in _chatbot_tokens(message)
+        if not token.isdigit() and token not in {"estilo", "estilos", "categoria", "categorias"}
+    ]
     follow_up = bool(re.search(
         r"\b(y|tambien|otra|otro|otras|otros|mas|cuanto|cuesta|precio|disponible|talla|color|"
         r"cuestan|sale|salen|barato|baratos|barata|baratas|economico|economicos|cara|caro|caros|premium|"
         r"menos|menor|hasta|maximo)\b",
         normalized,
     ))
-    if follow_up and history:
+    if follow_up and history and category is None:
         previous_tokens = _chatbot_previous_catalog_terms(history)
         tokens = list(dict.fromkeys(previous_tokens + tokens))
     tokens = tokens[:5]
 
     clauses = ["activo = TRUE"]
     parameters = []
+    if category:
+        if style_available:
+            clauses.append("estilo ILIKE %s")
+            parameters.append(f"%{category}%")
+        else:
+            category_clauses = []
+            for term in category_search_terms:
+                category_clauses.append("(nombre ILIKE %s OR descripcion ILIKE %s)")
+                parameters.extend([f"%{term}%", f"%{term}%"])
+            clauses.append("(" + " OR ".join(category_clauses) + ")")
     for token in tokens:
         clauses.append(
-            "(nombre ILIKE %s OR marca ILIKE %s OR color ILIKE %s "
-            "OR descripcion ILIKE %s OR estilo ILIKE %s)"
+            "(nombre ILIKE %s OR marca ILIKE %s OR color ILIKE %s OR descripcion ILIKE %s)"
         )
         pattern = f"%{token}%"
-        parameters.extend([pattern] * 5)
+        parameters.extend([pattern] * 4)
     if requested_size is not None:
-        clauses.append("talla = %s")
-        parameters.append(requested_size)
+        size_value = Decimal(requested_size)
+        normalized_size = format(size_value.normalize(), "f")
+        size_values = [normalized_size]
+        if size_value == size_value.to_integral_value():
+            size_values.append(f"{normalized_size}.0")
+        clauses.append("LTRIM(RTRIM(talla)) IN (" + ", ".join(["%s"] * len(size_values)) + ")")
+        parameters.extend(size_values)
     if max_price is not None:
         clauses.append("precio <= %s")
         parameters.append(max_price)
@@ -871,8 +941,27 @@ def _chatbot_catalog(message, history):
     )
     products = _db_query(query, tuple(parameters), fetch_all=True)
     if not products:
+        if category == "Moda":
+            if not style_available:
+                return (
+                    "El catálogo no tiene una categoría registrada para validar qué modelos son de moda, "
+                    "y no puedo confirmar tendencias sin esa información. Dime una marca, color o talla y "
+                    "consultaré los modelos activos disponibles."
+                )
+            return (
+                "No hay productos etiquetados como “Moda” en el catálogo actual, así que no puedo confirmar "
+                "qué modelos están en tendencia. Si quieres, dime una marca, color o talla y consultaré los "
+                "modelos activos disponibles."
+            )
         if tokens or max_price is not None or requested_size is not None:
             return "No encontré modelos activos que coincidan con esa búsqueda. Puedes probar con otra marca, color o modelo."
+        if category:
+            if not style_available:
+                return (
+                    f"No encontré productos con la categoría “{category}” indicada en su nombre o descripción. "
+                    "Puedo filtrar por una marca, talla o color que aparezca en el catálogo."
+                )
+            return f"No encontré productos activos etiquetados como “{category}” en el catálogo."
         return "Dime qué marca, modelo o estilo buscas y consultaré el catálogo disponible."
 
     lines = []
@@ -895,6 +984,38 @@ def _chatbot_catalog(message, history):
 
 def _chatbot_size_response(message):
     normalized = _chatbot_normalize(message)
+    child_guide = bool(re.search(r"\b(ninos?|ninas?|infantil(?:es)?|kids|junior)\b", normalized))
+    inch_match = re.search(r"\b(\d{1,3}(?:[.,]\d{1,2})?)\s*pulgadas?\b", normalized)
+    if inch_match:
+        inches = Decimal(inch_match.group(1).replace(",", "."))
+        centimeters = inches * Decimal("2.54")
+        return (
+            f"{inches:g} pulgadas equivalen a {centimeters:.2f} cm. Esa conversión por sí sola no determina "
+            "una talla de calzado; dime si quieres consultar la guía para adulto o infantil."
+        )
+
+    if child_guide:
+        child_size_match = re.search(r"\b(?:mx\s*)?(\d{1,2}(?:[.,]5)?)\b", normalized)
+        if child_size_match:
+            requested_size = child_size_match.group(1).replace(",", ".")
+            child_row = next(
+                (row for row in _CHATBOT_CHILD_SIZE_GUIDE if row[0] == requested_size),
+                None,
+            )
+            if child_row:
+                return (
+                    f"En la guía infantil de la tienda, MX {child_row[0]} corresponde aproximadamente "
+                    f"a un largo de pie de {child_row[1]} cm. La equivalencia puede variar por marca y modelo."
+                )
+        rows = "\n".join(
+            f"• MX infantil {size}: {length} cm"
+            for size, length in _CHATBOT_CHILD_SIZE_GUIDE
+        )
+        return (
+            "La guía infantil publicada incluye estas equivalencias aproximadas (no una conversión US/EU "
+            f"específica):\n{rows}\nMide ambos pies de pie y usa el más largo."
+        )
+
     measurement_match = re.search(r"\b(\d{1,2}(?:[.,]\d{1,2})?)\s*(?:cm|centimetros?)\b", normalized)
     if measurement_match:
         measurement = float(measurement_match.group(1).replace(",", "."))
@@ -965,7 +1086,8 @@ def _chatbot_faq_response(intent, message):
         return _CHATBOT_FAQ["promotions"]
     if intent == "purchase":
         return (
-            "Elige un modelo y su talla, agrégalo al carrito, inicia sesión o crea una cuenta, "
+            "Elige un modelo y su talla y agrégalo al carrito. Si aún no has iniciado sesión, "
+            "el carrito temporal se conserva y se te pedirá iniciar sesión para continuar. Después "
             "completa tus datos de entrega y selecciona uno de los métodos de pago disponibles en el checkout."
         )
     return ""
@@ -1067,36 +1189,52 @@ def _chatbot_role_response(message, role, history):
     ]
 
     if "cart" in intents:
-        if role != "customer":
-            responses.append("Inicia sesión como cliente para consultar tu carrito.")
+        if role in {"provider", "admin"}:
+            responses.append("El carrito de compras está disponible para clientes; inicia sesión como cliente para consultarlo.")
         else:
-            items, total = _cart_details()
+            cart_name = "cart" if role == "customer" else "pending_items"
+            items, total = _cart_details(cart_name)
             if not items:
                 responses.append("Tu carrito está vacío. Puedes agregar tenis desde el catálogo.")
             else:
                 contents = "\n".join(
-                    f"• {item['producto']['nombre']} · talla {item['talla_seleccionada']} × {item['cantidad']}."
+                    f"• {item['producto']['nombre']} · talla {item['talla_seleccionada']} × "
+                    f"{item['cantidad']} — ${item['producto']['precio']:,.2f} MXN por par "
+                    f"(subtotal ${item['subtotal']:,.2f} MXN)."
                     for item in items
                 )
-                responses.append(f"Esto tienes en tu carrito:\n{contents}\nTotal: ${total:,.2f} MXN.")
+                login_note = (
+                    " Inicia sesión como cliente para continuar con la compra."
+                    if role != "customer" else ""
+                )
+                responses.append(
+                    f"Esto tienes en tu carrito:\n{contents}\nTotal: ${total:,.2f} MXN.{login_note}"
+                )
 
     if "orders" in intents:
         if role != "customer":
             responses.append("Inicia sesión como cliente para consultar el estado de tus pedidos.")
         else:
-            orders = _db_query(
-                """SELECT id_pedido, estado, total, fecha_creacion FROM pedidos
-                   WHERE id_clientes=%s ORDER BY fecha_creacion DESC LIMIT 5""",
+            order_states = _db_query(
+                """SELECT estado, COUNT(*) AS cantidad FROM pedidos
+                   WHERE id_clientes=%s GROUP BY estado""",
                 (session["id_cliente"],), fetch_all=True,
             )
-            if not orders:
-                responses.append("Todavía no tienes pedidos registrados. Cuando confirmes una compra podrás consultarla aquí.")
+            if not order_states:
+                responses.append("Todavía no tienes pedidos registrados.")
             else:
+                completed = sum(
+                    order["cantidad"] for order in order_states
+                    if str(order["estado"]).lower() == "completado"
+                )
+                not_cancelled = sum(
+                    order["cantidad"] for order in order_states
+                    if str(order["estado"]).lower() != "cancelado"
+                )
                 responses.append(
-                    "Tus pedidos más recientes:\n" + "\n".join(
-                        f"• Pedido #{order['id_pedido']}: {order['estado']} — ${order['total']:,.2f} MXN."
-                        for order in orders
-                    )
+                    f"Tienes {not_cancelled} pedido(s) no cancelado(s), de los cuales "
+                    f"{completed} aparecen como completados. Los pedidos cancelados no se cuentan "
+                    "como compras completadas."
                 )
 
     catalog_follow_up = bool(
