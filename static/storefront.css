@@ -726,7 +726,10 @@ body.high-contrast :focus-visible { outline: 4px solid #ff0 !important; outline-
     backdrop-filter: blur(16px);
 }
 .a11y-controls[hidden] { display: none; }
+.a11y-zoom-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .a11y-control-label { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 700; }
+.a11y-zoom-value { margin-bottom: 8px; padding: 3px 8px; border: 1px solid #312e81; border-radius: 999px; color: #1e1b4b; background: #eef2ff; font-size: 12px; font-weight: 700; }
+.a11y-zoom-help { display: block; margin-top: 6px; color: #52525b; font-size: 11px; }
 .a11y-button-row { display: flex; gap: 8px; }
 .a11y-button-row button {
     min-height: 40px;
@@ -740,6 +743,7 @@ body.high-contrast :focus-visible { outline: 4px solid #ff0 !important; outline-
     cursor: pointer;
 }
 .a11y-button-row button:hover { color: #fff; background: #312e81; }
+.a11y-button-row button:disabled { color: #71717a; background: #e4e4e7; border-color: #a1a1aa; cursor: not-allowed; }
 .a11y-switch { position: relative; min-height: 32px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
 .a11y-switch input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .a11y-switch-track { width: 42px; height: 24px; flex: 0 0 42px; position: relative; border: 2px solid #555; border-radius: 999px; background: #e5e7eb; transition: background-color .16s ease; }
@@ -747,7 +751,6 @@ body.high-contrast :focus-visible { outline: 4px solid #ff0 !important; outline-
 .a11y-switch input:checked + .a11y-switch-track { border-color: #047857; background: #047857; }
 .a11y-switch input:checked + .a11y-switch-track::after { transform: translateX(18px); background: #fff; }
 .a11y-switch input:focus-visible + .a11y-switch-track { outline: 3px solid #6d28d9; outline-offset: 3px; }
-html { font-size: var(--a11y-font-scale, 100%); }
 body.dyslexia-font, body.dyslexia-font :is(h1, h2, h3, h4, p, a, button, input, select, textarea, label, li, td, th, span, strong, small) {
     font-family: Arial, Verdana, sans-serif !important;
     letter-spacing: .035em;
@@ -1394,7 +1397,6 @@ html, body {
     --navy-soft: #292929;
     --amber: #f4510b;
     --brand-gradient: linear-gradient(135deg, #f4510b, #c63e00);
-    --a11y-font-scale: 100%;
 }
 
 html { font-size: 100% !important; }

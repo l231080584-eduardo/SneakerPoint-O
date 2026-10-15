@@ -74,13 +74,17 @@
         <i class="fas fa-universal-access" aria-hidden="true"></i><span>Accesibilidad</span>
     </button>
     <section class="a11y-controls" id="a11y-controls" aria-label="Controles de accesibilidad" hidden>
-        <div class="a11y-text-controls" role="group" aria-label="Tamaño del texto">
-            <span class="a11y-control-label">Tamaño del texto (hasta 200%)</span>
-            <div class="a11y-button-row">
-                <button type="button" data-font-step="-1" aria-label="Reducir tamaño del texto">A−</button>
-                <button type="button" data-font-reset>Restablecer</button>
-                <button type="button" data-font-step="1" aria-label="Aumentar tamaño del texto">A+</button>
+        <div class="a11y-text-controls" role="group" aria-label="Ampliación de página">
+            <div class="a11y-zoom-heading">
+                <span class="a11y-control-label">Ampliación de página</span>
+                <output class="a11y-zoom-value" data-a11y-zoom-value aria-hidden="true">100%</output>
             </div>
+            <div class="a11y-button-row">
+                <button type="button" data-font-step="-1" aria-label="Reducir ampliación de página">A−</button>
+                <button type="button" data-font-reset>Restablecer</button>
+                <button type="button" data-font-step="1" aria-label="Aumentar ampliación de página">A+</button>
+            </div>
+            <span class="a11y-zoom-help">Actual: <span data-a11y-zoom-description>100%</span>. Máximo: 200%.</span>
         </div>
         <label class="a11y-switch">
             <span>Modo nocturno</span><input type="checkbox" data-a11y-setting="darkMode"><span class="a11y-switch-track" aria-hidden="true"></span>
@@ -150,13 +154,14 @@
 </footer>
 <a class="admin-secret-access" data-admin-access href="{{ url_for('admin_login') }}" hidden>Acceso administrativo</a>
 <div class="toast-container" data-toast-container aria-live="polite" aria-atomic="false"></div>
-{% if session.get('role') not in ['admin', 'provider'] %}
-<div class="chatbot-widget" data-chatbot>
+{% set provider_assistant = session.get('role') == 'provider' and request.endpoint == 'provider_dashboard' %}
+{% if provider_assistant or session.get('role') not in ['admin', 'provider'] %}
+<div class="chatbot-widget" data-chatbot data-chatbot-assistant="{{ 'provider' if provider_assistant else 'customer' }}" data-chatbot-greeting="{{ 'Asistente para proveedores. Puedo consultar el catálogo público y el estado de tus propios productos.' if provider_assistant else '¡Hola! Puedo consultar el catálogo, precios y existencias, además de orientarte con tu compra.' }}">
     <section class="chatbot-panel" id="chatbot-panel" data-chatbot-panel role="dialog" aria-modal="false" aria-labelledby="chatbot-title" hidden>
         <header class="chatbot-header">
             <div>
-                <h2 id="chatbot-title">Asistente Sneaker Point</h2>
-                <p>Catálogo y ayuda de compra</p>
+                <h2 id="chatbot-title">{{ 'Asistente para proveedores' if provider_assistant else 'Asistente Sneaker Point' }}</h2>
+                <p>{{ 'Tus productos y catálogo público' if provider_assistant else 'Catálogo y ayuda de compra' }}</p>
             </div>
             <div class="chatbot-header-actions">
                 <button type="button" class="chatbot-icon-button" data-chatbot-reset aria-label="Iniciar conversación nueva" title="Limpiar conversación"><i class="fas fa-rotate-right" aria-hidden="true"></i></button>
@@ -166,11 +171,7 @@
         <div class="chatbot-content">
             <div class="chatbot-messages" data-chatbot-messages role="log" aria-live="polite" aria-relevant="additions text" aria-atomic="false"></div>
             <div class="chatbot-suggestions" data-chatbot-suggestions aria-label="Preguntas sugeridas">
-                {% if session.get('role') == 'admin' %}
-                    <button type="button" data-chatbot-prompt="Consulta el catálogo disponible">Consultar catálogo</button>
-                    <button type="button" data-chatbot-prompt="Resumen administrativo">Resumen administrativo</button>
-                    <button type="button" data-chatbot-prompt="Directorio de proveedores">Directorio de proveedores</button>
-                {% elif session.get('role') == 'provider' %}
+                {% if provider_assistant %}
                     <button type="button" data-chatbot-prompt="Consulta el catálogo disponible">Consultar catálogo</button>
                     <button type="button" data-chatbot-prompt="Estado de mis productos">Estado de mis productos</button>
                 {% elif session.get('role') == 'customer' %}
@@ -181,9 +182,11 @@
                     <button type="button" data-chatbot-prompt="Consulta el catálogo disponible">Consultar catálogo</button>
                     <button type="button" data-chatbot-prompt="Cómo comprar">Cómo comprar</button>
                 {% endif %}
-                <button type="button" data-chatbot-prompt="¿Cómo funcionan los envíos?">Envíos</button>
-                <button type="button" data-chatbot-prompt="¿Cuál es la política de devoluciones?">Devoluciones</button>
-                <button type="button" data-chatbot-prompt="¿Cuáles son sus horarios?">Horarios</button>
+                {% if not provider_assistant %}
+                    <button type="button" data-chatbot-prompt="¿Cómo funcionan los envíos?">Envíos</button>
+                    <button type="button" data-chatbot-prompt="¿Cuál es la política de devoluciones?">Devoluciones</button>
+                    <button type="button" data-chatbot-prompt="¿Cuáles son sus horarios?">Horarios</button>
+                {% endif %}
             </div>
             <p class="chatbot-status" data-chatbot-status role="status" aria-live="polite"></p>
             <form class="chatbot-form" data-chatbot-form>
@@ -191,7 +194,7 @@
                 <input id="chatbot-message" name="message" type="text" maxlength="500" placeholder="Escribe tu pregunta..." autocomplete="off" required>
                 <button type="submit" aria-label="Enviar mensaje"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
             </form>
-            <p class="chatbot-privacy-note">Consulta información de la tienda. No compartas datos bancarios ni contraseñas.</p>
+            <p class="chatbot-privacy-note">{{ 'Este asistente solo consulta el catálogo público y tus propios productos.' if provider_assistant else 'Consulta información de la tienda. No compartas datos bancarios ni contraseñas.' }}</p>
         </div>
     </section>
     <button class="chatbot-launcher" type="button" data-chatbot-open aria-expanded="false" aria-controls="chatbot-panel">
@@ -230,7 +233,8 @@
             const sendButton = form.querySelector('button[type="submit"]');
             const status = chatbot.querySelector('[data-chatbot-status]');
             const prompts = chatbot.querySelectorAll('[data-chatbot-prompt]');
-            const openingMessage = '¡Hola! Puedo consultar el catálogo, precios y existencias, además de orientarte con tu compra.';
+            const assistantRole = chatbot.dataset.chatbotAssistant;
+            const openingMessage = chatbot.dataset.chatbotGreeting;
             const userHistory = [];
             let busy = false;
 
@@ -264,7 +268,9 @@
                 sendButton.disabled = true;
                 resetButton.disabled = true;
                 form.setAttribute('aria-busy', 'true');
-                status.textContent = 'Consultando el catálogo...';
+                status.textContent = assistantRole === 'provider'
+                    ? 'Consultando tus productos y el catálogo...'
+                    : 'Consultando el catálogo...';
                 addMessage(text, 'user');
                 userHistory.push(text);
                 if (userHistory.length > 8) userHistory.shift();
@@ -281,6 +287,10 @@
                     });
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.error || 'No se pudo procesar tu mensaje.');
+                    if ((assistantRole === 'provider' && result.role !== 'provider')
+                        || (assistantRole === 'customer' && !['guest', 'customer'].includes(result.role))) {
+                        throw new Error('No se pudo validar el asistente para esta sesión.');
+                    }
                     addMessage(result.reply, 'assistant');
                     status.textContent = '';
                 } catch (error) {
@@ -456,12 +466,15 @@
         }
 
         const a11yStatus = document.querySelector('[data-a11y-status]');
-        const fontScaleKey = 'sneakerpoint.a11y.fontScale';
+        const zoomPreferenceKey = 'sneakerpoint.a11y.fontScale';
         const preferencesKey = 'sneakerpoint.a11y.preferences';
+        const zoomValue = document.querySelector('[data-a11y-zoom-value]');
+        const zoomDescription = document.querySelector('[data-a11y-zoom-description]');
+        const zoomButtons = document.querySelectorAll('[data-font-step]');
         const defaultPreferences = { darkMode: false, highContrast: false, dyslexiaFont: false };
         const supportedScales = [90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200];
         let preferences = { ...defaultPreferences };
-        let fontScale = 100;
+        let zoomPercent = 100;
 
         const readPreferences = () => {
             try {
@@ -471,16 +484,21 @@
                         preferences[key] = savedPreferences[key] === true;
                     });
                 }
-                const savedScale = Number(localStorage.getItem(fontScaleKey));
-                if (supportedScales.includes(savedScale)) fontScale = savedScale;
+                const savedScale = Number(localStorage.getItem(zoomPreferenceKey));
+                if (supportedScales.includes(savedScale)) zoomPercent = savedScale;
             } catch (error) {
                 console.warn('No fue posible leer las preferencias de accesibilidad.', error);
             }
         };
 
         const applyPreferences = () => {
-            document.documentElement.style.setProperty('--a11y-font-scale', `${fontScale}%`);
-            document.documentElement.style.setProperty('--a11y-page-zoom', String(fontScale / 100));
+            document.documentElement.style.setProperty('--a11y-page-zoom', String(zoomPercent / 100));
+            zoomValue.value = `${zoomPercent}%`;
+            zoomDescription.textContent = `${zoomPercent}%`;
+            zoomButtons.forEach((button) => {
+                const step = Number(button.dataset.fontStep);
+                button.disabled = step > 0 ? zoomPercent === supportedScales[supportedScales.length - 1] : zoomPercent === supportedScales[0];
+            });
             document.body.classList.toggle('dark-mode', preferences.darkMode);
             document.body.classList.toggle('high-contrast', preferences.highContrast);
             document.body.classList.toggle('dyslexia-font', preferences.dyslexiaFont);
@@ -492,7 +510,7 @@
         const savePreferences = () => {
             try {
                 localStorage.setItem(preferencesKey, JSON.stringify(preferences));
-                localStorage.setItem(fontScaleKey, String(fontScale));
+                localStorage.setItem(zoomPreferenceKey, String(zoomPercent));
             } catch (error) {
                 console.warn('No fue posible guardar las preferencias de accesibilidad.', error);
                 a11yStatus.textContent = 'El navegador no permitió guardar tus preferencias.';
@@ -587,19 +605,19 @@
 
         document.querySelectorAll('[data-font-step]').forEach((button) => {
             button.addEventListener('click', () => {
-                const currentIndex = supportedScales.indexOf(fontScale);
+                const currentIndex = supportedScales.indexOf(zoomPercent);
                 const nextIndex = Math.min(supportedScales.length - 1, Math.max(0, currentIndex + Number(button.dataset.fontStep)));
-                fontScale = supportedScales[nextIndex];
+                zoomPercent = supportedScales[nextIndex];
                 applyPreferences();
                 savePreferences();
-                a11yStatus.textContent = `Tamaño del texto: ${fontScale} por ciento.`;
+                a11yStatus.textContent = `Ampliación de página: ${zoomPercent} por ciento.`;
             });
         });
         document.querySelector('[data-font-reset]').addEventListener('click', () => {
-            fontScale = 100;
+            zoomPercent = 100;
             applyPreferences();
             savePreferences();
-            a11yStatus.textContent = 'Tamaño del texto restablecido.';
+            a11yStatus.textContent = 'Ampliación de página restablecida a 100 por ciento.';
         });
         document.querySelectorAll('[data-a11y-setting]').forEach((control) => {
             control.addEventListener('change', () => {

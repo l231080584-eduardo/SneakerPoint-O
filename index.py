@@ -674,8 +674,14 @@ def _chatbot_tokens(value):
 
 def _chatbot_catalog(message, history):
     normalized = _chatbot_normalize(message)
-    price_match = re.search(r"(?:menos de|menor(?:es)?(?: a| que)?|hasta|maximo(?: de)?)\s*\$?\s*([\d,]+)", normalized)
-    max_price = int(price_match.group(1).replace(",", "")) if price_match else None
+    price_match = re.search(
+        r"(?:menos de|menor(?:es)?(?: a| que)?|hasta|maximo(?: de)?)\s*\$?\s*([\d,]+(?:\.\d{1,2})?)",
+        normalized,
+    )
+    max_price = Decimal(price_match.group(1).replace(",", "")) if price_match else None
+    size_match = re.search(r"\btalla\s*(?:numero\s*)?(\d{1,2}(?:[.,]\d{1,2})?)\b", normalized)
+    requested_size = size_match.group(1).replace(",", ".") if size_match else None
+    asking_sizes = bool(re.search(r"\btallas?\b", normalized)) and requested_size is None
 
     tokens = [token for token in _chatbot_tokens(message) if not token.isdigit()]
     follow_up = bool(re.search(
@@ -692,12 +698,38 @@ def _chatbot_catalog(message, history):
     clauses = ["activo = TRUE"]
     parameters = []
     for token in tokens:
-        clauses.append("(nombre ILIKE %s OR marca ILIKE %s OR color ILIKE %s OR descripcion ILIKE %s)")
+        clauses.append(
+            "(nombre ILIKE %s OR marca ILIKE %s OR color ILIKE %s "
+            "OR descripcion ILIKE %s OR estilo ILIKE %s)"
+        )
         pattern = f"%{token}%"
-        parameters.extend([pattern] * 4)
+        parameters.extend([pattern] * 5)
+    if requested_size is not None:
+        clauses.append("talla = %s")
+        parameters.append(requested_size)
     if max_price is not None:
         clauses.append("precio <= %s")
         parameters.append(max_price)
+
+    if asking_sizes:
+        if not tokens:
+            return "Dime la marca o el modelo para consultar las tallas y existencias actuales."
+        sizes = _db_query(
+            """SELECT nombre, marca, talla, stock FROM productos
+               WHERE """ + " AND ".join(clauses) + " ORDER BY nombre, talla LIMIT 20",
+            tuple(parameters), fetch_all=True,
+        )
+        if not sizes:
+            return "No encontré tallas registradas para ese modelo en el catálogo activo."
+        lines = []
+        for product in sizes:
+            stock = f"{product['stock']} pares" if product["stock"] else "agotada"
+            lines.append(
+                f"• {product['nombre']} ({product['marca']}) — "
+                f"talla {product['talla']}: {stock}."
+            )
+        return "Tallas y existencias actuales del catálogo:\n" + "\n".join(lines)
+
     ordering = "precio ASC" if any(word in normalized for word in ("barato", "baratos", "economico", "economicos")) else "precio DESC" if any(
         word in normalized for word in ("caro", "caros", "premium")
     ) else "nombre"
@@ -708,7 +740,7 @@ def _chatbot_catalog(message, history):
     )
     products = _db_query(query, tuple(parameters), fetch_all=True)
     if not products:
-        if tokens or max_price is not None:
+        if tokens or max_price is not None or requested_size is not None:
             return "No encontré modelos activos que coincidan con esa búsqueda. Puedes probar con otra marca, color o modelo."
         return "Dime qué marca, modelo o estilo buscas y consultaré el catálogo disponible."
 
@@ -718,6 +750,8 @@ def _chatbot_catalog(message, history):
         details = [product["marca"]]
         if product.get("color"):
             details.append(product["color"])
+        if product.get("talla"):
+            details.append(f"talla {product['talla']}")
         lines.append(
             f"• {product['nombre']} ({' · '.join(details)}) — "
             f"${product['precio']:,.2f} MXN; {stock}."
@@ -728,28 +762,62 @@ def _chatbot_catalog(message, history):
     return answer
 
 
+def _chatbot_provider_response(message, history):
+    normalized = _chatbot_normalize(message)
+
+    if any(word in normalized for word in ("pedido", "pedidos", "cliente", "clientes", "carrito", "ventas")):
+        return "No tengo acceso a pedidos, carritos ni información de clientes. Puedo consultar el catálogo público y el estado de tus propios productos."
+
+    if re.search(
+        r"\b(mis|mi)\b.*\b(productos?|propuestas?|publicaciones?)\b"
+        r"|\b(estado|revision|revisar)\b.*\b(productos?|propuestas?|publicaciones?)\b",
+        normalized,
+    ):
+        products = _db_query(
+            """SELECT nombre, marca, estado FROM productos_proveedor
+               WHERE id_proveedor=%s ORDER BY fecha_creacion DESC LIMIT 8""",
+            (session["id_proveedor"],), fetch_all=True,
+        )
+        if not products:
+            return "Aún no has enviado productos. Puedes proponer un modelo desde tu portal de proveedor."
+        return "Estado de tus productos:\n" + "\n".join(
+            f"• {product['nombre']} ({product['marca']}): {product['estado']}."
+            for product in products
+        )
+
+    if any(word in normalized for word in ("proveedor", "proveedores", "directorio")):
+        return "Solo puedo consultar tus propios productos y el catálogo público; no tengo acceso al directorio de otros proveedores."
+
+    if any(word in normalized for word in ("envio", "envios", "entrega", "devolucion", "reembolso", "horario")):
+        return "No tengo información confirmada sobre políticas de envíos, devoluciones u horarios. Puedo consultar el catálogo público o el estado de tus productos."
+
+    if any(word in normalized for word in ("hola", "buenas", "buenos dias", "buenas tardes", "buenas noches")):
+        name = session.get("nombre_proveedor")
+        greeting = f"¡Hola, {name}! " if name else "¡Hola! "
+        return greeting + "Este asistente consulta el catálogo público y el estado de tus propios productos."
+
+    catalog_intent = bool(
+        _chatbot_tokens(message)
+        or any(word in normalized for word in ("catalogo", "tenis", "modelo", "marca", "color", "talla", "precio", "stock", "disponible", "estilo"))
+    )
+    if catalog_intent:
+        return _chatbot_catalog(message, history)
+
+    return "Puedo consultar el catálogo público y el estado de tus propios productos. No tengo acceso a pedidos de clientes ni a datos de otros proveedores."
+
+
 def _chatbot_role_response(message, role, history):
     normalized = _chatbot_normalize(message)
 
+    if role == "provider":
+        return _chatbot_provider_response(message, history)
+
     if any(term in normalized for term in ("envio", "envios", "entrega", "paquete")):
-        return (
-            "¡Sí, hacemos envíos a todo México! El envío estándar cuesta $99 MXN y es gratis en compras "
-            "mayores a $1,500 MXN. El tiempo estimado de entrega es de 3 a 7 días hábiles, según tu ubicación. "
-            "Te compartiremos los datos de seguimiento cuando tu pedido salga."
-        )
+        return "No tengo información confirmada sobre cobertura, costos o tiempos de envío. Consulta los datos de contacto de la tienda para confirmar esta información."
     if any(term in normalized for term in ("devolucion", "devolver", "reembolso", "cambio")):
-        return (
-            "¡Sí, aceptamos cambios y devoluciones! Puedes solicitarlo dentro de los 30 días naturales "
-            "posteriores a la entrega. El calzado debe estar sin uso y en su caja original. Una vez aprobado "
-            "el reembolso, puede tardar de 5 a 10 días hábiles en reflejarse, según tu método de pago. "
-            "Escríbenos a sneakerpoint@gmail.com o llama al 55 6127 2829 para iniciar la solicitud."
-        )
+        return "No tengo información confirmada sobre cambios o devoluciones. Consulta los datos de contacto de la tienda para confirmar esta información."
     if any(term in normalized for term in ("horario", "horarios", "abren", "abierto", "atienden", "cierran")):
-        return (
-            "Nuestro horario de atención es de lunes a viernes, de 9:00 a 18:00, y sábados de 10:00 a 14:00 "
-            "(hora del centro de México). Los domingos no hay atención. Puedes escribirnos en cualquier "
-            "momento a sneakerpoint@gmail.com y te responderemos dentro del horario de atención."
-        )
+        return "No tengo información confirmada sobre horarios de atención. Consulta los datos de contacto de la tienda para confirmar esta información."
 
     if any(word in normalized for word in ("proveedor", "proveedores", "contacto del proveedor", "contactar al proveedor")):
         if role == "admin":
@@ -768,8 +836,6 @@ def _chatbot_role_response(message, role, history):
                     details.append(provider["telefono"])
                 entries.append("• " + " · ".join(details))
             return "Directorio interno de proveedores:\n" + "\n".join(entries)
-        if role == "provider":
-            return "Desde aquí puedo ayudarte con el catálogo y el estado de tus propios productos. El directorio y los datos de contacto de otros proveedores son de uso exclusivo de administración."
         return "Puedo ayudarte a buscar tenis del catálogo. El contacto y directorio de proveedores son de uso exclusivo del equipo administrador."
 
     if role == "admin" and any(word in normalized for word in ("resumen", "estadistica", "ventas", "pendiente", "dashboard")):
@@ -785,19 +851,6 @@ def _chatbot_role_response(message, role, history):
             f"• Proveedores registrados: {summary['providers']}\n"
             f"• Propuestas pendientes: {summary['pending']}\n"
             f"• Pedidos no cancelados: {summary['sales']}"
-        )
-
-    if role == "provider" and any(word in normalized for word in ("mis productos", "mis propuestas", "estado de mis", "mis publicaciones")):
-        products = _db_query(
-            """SELECT nombre, marca, estado FROM productos_proveedor
-               WHERE id_proveedor=%s ORDER BY fecha_creacion DESC LIMIT 8""",
-            (session["id_proveedor"],), fetch_all=True,
-        )
-        if not products:
-            return "Aún no has enviado productos. Puedes proponer un modelo desde tu portal de proveedor."
-        return "Estado de tus productos:\n" + "\n".join(
-            f"• {product['nombre']} ({product['marca']}): {product['estado']}."
-            for product in products
         )
 
     if role == "customer" and any(word in normalized for word in ("mi carrito", "carrito de compras", "que hay en el carrito")):
@@ -828,20 +881,16 @@ def _chatbot_role_response(message, role, history):
         or any(word in normalized for word in ("carrito", "pagar", "pago", "envio", "entrega"))
     ):
         answer = (
-            "Elige el modelo, selecciona talla y cantidad y agrégalo al carrito. Para confirmar tu pedido "
-            "inicia sesión, completa tus datos de entrega y elige transferencia o efectivo al recibir. "
-            "La disponibilidad y el envío se confirman al procesar el pedido."
+            "Elige el modelo, selecciona talla y cantidad y agrégalo al carrito. Completa los datos que "
+            "solicite el checkout y elige uno de los métodos de pago que aparezcan ahí. El precio y la "
+            "disponibilidad se consultan desde el catálogo al procesar el pedido."
         )
         if role == "guest":
             answer += " Puedes crear una cuenta o iniciar sesión para completar la compra."
         return answer
 
     if any(word in normalized for word in ("devolucion", "devolver", "cambio", "garantia", "reembolso")):
-        return (
-            "¡Sí, aceptamos cambios y devoluciones dentro de los 30 días naturales posteriores a la entrega! "
-            "El calzado debe estar sin uso y en su caja original. Escríbenos a sneakerpoint@gmail.com "
-            "o llama al 55 6127 2829 para iniciar la solicitud."
-        )
+        return "No tengo información confirmada sobre cambios o devoluciones. Consulta los datos de contacto de la tienda para confirmar esta información."
 
     if any(word in normalized for word in ("hola", "buenas", "buenos dias", "buenas tardes", "buenas noches")):
         name = session.get("nombre_cliente") or session.get("nombre_proveedor")
@@ -853,10 +902,6 @@ def _chatbot_role_response(message, role, history):
         return greeting + "Puedo buscar modelos y precios del catálogo, y ayudarte con tu compra. ¿Qué tenis buscas?"
 
     if role == "admin" and any(word in normalized for word in ("proveedores", "directorio", "contacto")):
-        return _chatbot_role_response(message, role, history)
-    if role == "provider" and any(word in normalized for word in ("producto", "propuesta", "publicacion")) and any(
-        word in normalized for word in ("mis", "estado", "revision", "revisar")
-    ):
         return _chatbot_role_response(message, role, history)
     if role == "customer" and any(word in normalized for word in ("pedido", "compra")) and any(
         word in normalized for word in ("mis", "mi", "estado")
