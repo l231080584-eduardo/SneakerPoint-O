@@ -50,7 +50,16 @@ class ChatbotRegressionTests(unittest.TestCase):
             return {"available": self.style_available}
         if "FROM productos" in sql:
             if "id_producto IN" in sql:
-                return [PRODUCTS[0]]
+                product_fields = ("nombre", "marca", "color", "talla", "precio")
+                products = [
+                    product for product in PRODUCTS
+                    if product["id_producto"] in params and product["activo"]
+                ]
+                return [
+                    {key: product[key] for key in product_fields}
+                    | {"id_producto": product["id_producto"]}
+                    for product in products
+                ]
             matches = []
             patterns = [str(value)[1:-1].lower() for value in params if isinstance(value, str) and value.startswith("%") and value.endswith("%")]
             category_term_count = sql.count("(nombre ILIKE %s OR descripcion ILIKE %s)")
@@ -98,20 +107,21 @@ class ChatbotRegressionTests(unittest.TestCase):
             ]
         raise AssertionError(f"Unexpected database query: {sql}")
 
-    def ask(self, message, role=None, session_values=None, history=None):
+    def ask(self, message, role=None, session_values=None, history=None, favorites=None):
         with self.client.session_transaction() as flask_session:
             flask_session.clear()
             if role:
                 flask_session.update(loggedin=True, role=role)
             if session_values:
                 flask_session.update(session_values)
-        return self.client.post(
-            "/api/chatbot",
-            json={"message": message, "history": history or []},
-        )
+        payload = {"message": message, "history": history or []}
+        if favorites is not None:
+            payload["favorites"] = favorites
+        return self.client.post("/api/chatbot", json=payload)
 
     def test_brand_questions_match_catalog_columns_and_active_filter(self):
         cases = (
+            ("¿Tienen Nike?", "Air Force 1", "%nike%"),
             ("¿Tienes tenis de la marca Nike?", "Air Force 1", "%nike%"),
             ("¿Tienes tenis de la marca Adidas?", "Campus", "%adidas%"),
             ("¿Tienes Converse?", "Chuck Taylor", "%converse%"),
@@ -252,6 +262,33 @@ class ChatbotRegressionTests(unittest.TestCase):
         self.assertNotIn("talla 2", inches.json["reply"].lower())
         self.assertEqual(self.queries, [])
 
+    def test_size_guide_follow_up_converts_centimeter_variants(self):
+        for measurement, expected in (
+            ("24 cm", "Para un pie de 24 cm"),
+            ("24 centimetros", "Para un pie de 24 cm"),
+            ("24 centímetros", "Para un pie de 24 cm"),
+            ("mi pie mide 24", "Interpreto la medida indicada sin unidad como centímetros"),
+            ("talla 25 MX", "MX 25 equivale aproximadamente"),
+            ("25", "Interpreto la medida indicada sin unidad como centímetros"),
+        ):
+            with self.subTest(measurement=measurement):
+                response = self.ask(
+                    measurement,
+                    history=["guía de tallas"],
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(expected, response.json["reply"])
+                self.assertNotIn("Soy el asistente", response.json["reply"])
+                self.assertEqual(self.queries, [])
+
+    def test_guide_context_remains_available_for_a_second_conversion(self):
+        response = self.ask(
+            "25",
+            history=["guía de tallas", "24 cm"],
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Para un pie de 25 cm", response.json["reply"])
+
     def test_cart_uses_current_session_cart_items_and_price(self):
         response = self.ask(
             "¿Qué tenis tengo en el carrito?",
@@ -265,14 +302,75 @@ class ChatbotRegressionTests(unittest.TestCase):
         self.assertNotIn("No encontré modelos", response.json["reply"])
         self.assertTrue(any("id_producto IN" in sql for sql, _ in self.queries))
 
-    def test_guest_cart_uses_pending_session_cart_and_explains_login(self):
+    def test_guest_cart_requires_login_and_does_not_read_pending_cart(self):
         response = self.ask(
-            "¿Qué tenis tengo en el carrito?",
+            "¿Cuántos tenis tengo en el carrito?",
             session_values={"pending_items": {"1_25": 1}},
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Air Force 1", response.json["reply"])
-        self.assertIn("Inicia sesión como cliente", response.json["reply"])
+        self.assertIn("/login?next=/carrito", response.json["reply"])
+        self.assertNotIn("Air Force 1", response.json["reply"])
+        self.assertEqual(self.queries, [])
+
+    def test_logged_in_empty_cart_is_reported_clearly(self):
+        response = self.ask(
+            "¿Cuántos tenis tengo en el carrito?",
+            role="customer",
+            session_values={"id_cliente": 7, "cart": {}},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Tu carrito está vacío", response.json["reply"])
+        self.assertNotIn("No encontré modelos", response.json["reply"])
+
+    def test_logged_in_cart_reports_pairs_models_and_total(self):
+        response = self.ask(
+            "¿Cuántos tenis tengo en el carrito?",
+            role="customer",
+            session_values={"id_cliente": 7, "cart": {"1_25": 2, "1_26": 1}},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("3 par(es)", response.json["reply"])
+        self.assertIn("1 modelo(s) distinto(s)", response.json["reply"])
+        self.assertIn("Total: $5,100.00 MXN", response.json["reply"])
+        self.assertTrue(any("id_producto IN" in sql for sql, _ in self.queries))
+
+    def test_guest_favorites_requires_login_and_real_favorites_route(self):
+        response = self.ask("¿Cuántos tengo en favoritos?")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("/login?next=/favoritos", response.json["reply"])
+        self.assertEqual(self.queries, [])
+
+    def test_customer_without_favorites_is_told_favorites_are_browser_local(self):
+        response = self.ask(
+            "¿Tengo algo en favoritos?",
+            role="customer",
+            session_values={"id_cliente": 7},
+            favorites=[],
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("No tienes tenis guardados en favoritos", response.json["reply"])
+        self.assertIn("no se sincronizan", response.json["reply"])
+        self.assertEqual(self.queries, [])
+
+    def test_customer_favorites_use_browser_ids_and_real_product_data(self):
+        response = self.ask(
+            "¿Qué tenis guardé en favoritos?",
+            role="customer",
+            session_values={"id_cliente": 7},
+            favorites=["4"],
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Campus (Adidas)", response.json["reply"])
+        self.assertIn("$1,500.00 MXN", response.json["reply"])
+        sql, params = self.queries[-1]
+        self.assertIn("activo = TRUE AND id_producto IN", sql)
+        self.assertEqual(params, (4,))
+
+    def test_favorite_help_does_not_search_catalog(self):
+        response = self.ask("¿Cómo agrego un tenis a favoritos?")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("el corazón", response.json["reply"])
+        self.assertEqual(self.queries, [])
 
     def test_order_count_is_customer_scoped_and_excludes_cancellations_from_completed(self):
         response = self.ask(
@@ -290,7 +388,8 @@ class ChatbotRegressionTests(unittest.TestCase):
     def test_guest_order_count_requires_login(self):
         response = self.ask("¿Cuántas compras he hecho?")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Inicia sesión como cliente", response.json["reply"])
+        self.assertIn("inicia sesión como cliente", response.json["reply"])
+        self.assertIn("/login?next=/mis-pedidos", response.json["reply"])
         self.assertEqual(self.queries, [])
 
     def test_order_database_error_is_not_reported_as_empty_history(self):
@@ -310,7 +409,7 @@ class ChatbotRegressionTests(unittest.TestCase):
         self.assertEqual(self.queries, [])
 
     def test_unrelated_questions_do_not_query_catalog(self):
-        for question in ("Te extraño", "¿Sabes qué es un commit?", "asdfghjkl"):
+        for question in ("Te extraño", "¿Qué es un commit?", "asdfghjkl"):
             with self.subTest(question=question):
                 self.queries.clear()
                 response = self.ask(question)
@@ -320,6 +419,8 @@ class ChatbotRegressionTests(unittest.TestCase):
                     or "No alcancé a entender" in response.json["reply"]
                 )
                 self.assertEqual(self.queries, [])
+                if "commit" in question:
+                    self.assertIn("Soy el asistente de Sneaker Point", response.json["reply"])
 
 
 if __name__ == "__main__":

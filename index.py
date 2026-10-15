@@ -750,7 +750,7 @@ def _chatbot_classify_intents(message):
         ("hours", r"\b(horario|horarios|abren|abierto|atienden|cierran|domingo|domingos)\b"),
         ("shipping", r"\b(envio|envios|entrega|entregas|paquete|paqueteria|rastreo|rastrear|seguimiento|tarda|tardar|tardara|llegar|llegue|yegar)\b"),
         ("returns", r"\b(devolucion|devolver|devoluciones|cambio|cambiar|reembolso|garantia|no me queda|no le queda)\b"),
-        ("size", r"\b(guia de tallas?|medir|equivalencia|equivalencias|que talla soy|saber que talla|talla corresponde|medida del pie|largo del pie|pie mide|mido \d|mx\s*\d{2}|\d{1,3}(?:[.,]\d{1,2})?\s*pulgadas?)\b"),
+        ("size", r"\b(guia de tallas?|medir|equivalencia|equivalencias|que talla soy|saber que talla|talla corresponde|medida del pie|largo del pie|pie mide|mido \d|mx\s*\d{2}|\d{1,3}(?:[.,]\d{1,2})?\s*(?:cm|centimetros?)|\d{1,3}(?:[.,]\d{1,2})?\s*pulgadas?|talla\s*\d{1,2}(?:[.,]5)?\s*mx)\b"),
         ("payment", r"\b(pago|pagos|pagar|metodos de pago|transferencia|efectivo|mercado pago|tarjeta|aceptan .{0,25} pagar)\b"),
         ("location", r"\b(ubicacion|direccion|donde se encuentran|donde estan|sucursal|tienda fisica)\b"),
         ("contact", r"\b(contacto|contactar|contactarlos?|telefono|correo|email|escribirles|llamarles)\b"),
@@ -760,6 +760,8 @@ def _chatbot_classify_intents(message):
         ("social", r"\b(que redes|cuales redes|red social|pagina de facebook|pagina oficial)\b"),
         ("purchase", r"\b(como (?:puedo )?comprar|como hago una compra)\b"),
         ("purchase", r"\b(como (?:puedo )?)?(?:agregar|agrego|anadir|anado|poner).{0,35}\bcarrito\b"),
+        ("favorites_help", r"\b(como (?:puedo )?)?(?:agregar|agrego|anadir|anado|guardar|guardo|poner).{0,40}\bfavoritos?\b"),
+        ("favorites", r"\b(favoritos?|guardados?|guardadas?)\b"),
         ("clarification", r"\b(no entendi|no entiendo|respuesta anterior|que quisiste decir|no comprendi)\b"),
     )
     for intent, pattern in patterns:
@@ -768,8 +770,9 @@ def _chatbot_classify_intents(message):
 
     if re.search(
         r"\b(?:mi carrito|carrito de compras|que hay en (?:(?:mi|el) )?carrito|"
-        r"que (?:tenis|productos?) tengo en (?:(?:mi|el) )?carrito|ver (?:(?:mi|el) )?carrito|"
-        r"contenido del carrito|mi compra)\b",
+        r"que (?:tenis|productos?) tengo en (?:(?:mi|el) )?carrito|"
+        r"cuantos? (?:tenis|productos?|pares|articulos?) tengo en (?:(?:mi|el) )?carrito|"
+        r"ver (?:(?:mi|el) )?carrito|contenido del carrito|mi compra)\b",
         normalized,
     ) and "purchase" not in intents:
         intents.append("cart")
@@ -777,7 +780,7 @@ def _chatbot_classify_intents(message):
         re.search(
             r"\b(mis pedidos|mis compras|mi pedido|estado del pedido|seguimiento de mi pedido|"
             r"rastrear mi pedido|cuantas? compras he hecho|cuantos? pedidos he hecho|"
-            r"historial de compras|historial de pedidos)\b",
+            r"historial de compras|historial de pedidos|cuantas? compras tengo)\b",
             normalized,
         )
         and not re.search(r"\b(cuanto tarda|cuando llega|fecha de entrega)\b", normalized)
@@ -795,7 +798,14 @@ def _chatbot_classify_intents(message):
         and not re.search(r"\b(guia|equivalencia|medida|pie|pulgadas?)\b", normalized)
     )
     if (has_product_terms or size_is_product_filter) and not any(
-        intent in intents for intent in ("cart", "orders", "purchase")
+        intent in intents for intent in ("cart", "orders", "purchase", "favorites")
+    ) and not (
+        "size" in intents
+        and not re.search(
+            r"\b(tenis|zapatos|calzado|producto|productos|modelo|modelos|catalogo|marca|marcas|"
+            r"color|nike|adidas|puma|reebok|converse|vans|new balance|jordan|asics|under armour)\b",
+            normalized,
+        )
     ):
         intents.append("catalog")
 
@@ -821,6 +831,20 @@ def _chatbot_previous_catalog_terms(history):
         if previous_tokens:
             return previous_tokens
     return []
+
+
+def _chatbot_has_size_context(history):
+    for previous_message in reversed(history[-4:]):
+        intents = _chatbot_classify_intents(previous_message)
+        if "size" in intents:
+            return True
+        if any(
+            intent in intents
+            for intent in ("cart", "catalog", "favorites", "favorites_help", "orders", "purchase",
+                           "shipping", "returns", "social", "payment", "hours")
+        ):
+            return False
+    return False
 
 
 def _chatbot_has_style_column():
@@ -1017,6 +1041,10 @@ def _chatbot_size_response(message):
         )
 
     measurement_match = re.search(r"\b(\d{1,2}(?:[.,]\d{1,2})?)\s*(?:cm|centimetros?)\b", normalized)
+    if not measurement_match:
+        measurement_match = re.search(r"\bmi\s+(?:pie\s+)?mide\s+(\d{1,2}(?:[.,]\d{1,2})?)\b", normalized)
+    if not measurement_match:
+        measurement_match = re.fullmatch(r"\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*", normalized)
     if measurement_match:
         measurement = float(measurement_match.group(1).replace(",", "."))
         guide_rows = _CHATBOT_ADULT_SIZE_GUIDE
@@ -1036,14 +1064,26 @@ def _chatbot_size_response(message):
                 f"MX {row[0]} (EU {row[1]}, US hombre {row[2]}, US mujer {row[3]})"
                 for row in matches
             )
+        unit_note = (
+            " Interpreto la medida indicada sin unidad como centímetros; confirma si usaste otra unidad."
+            if not re.search(r"\b(cm|centimetros?)\b", normalized)
+            else ""
+        )
         return (
-            f"Para un pie de {measurement:g} cm, la guía muestra {sizes}. "
-            "Es una equivalencia orientativa; el ajuste puede variar según la marca y el modelo."
+            f"Para un pie de {measurement:g} cm, la guía publicada muestra {sizes}. "
+            "Es una equivalencia orientativa; no garantiza el ajuste de cada marca o modelo."
+            f"{unit_note}"
         )
 
-    conversion_match = re.search(r"\bmx\s*(\d{2}(?:[.,]5)?)\b", normalized)
+    conversion_match = re.search(
+        r"\bmx\s*(\d{2}(?:[.,]5)?)\b|\btalla\s*(\d{2}(?:[.,]5)?)\s*mx\b",
+        normalized,
+    )
     if conversion_match:
-        requested_size = conversion_match.group(1).replace(",", ".")
+        requested_size = next(
+            (value for value in conversion_match.groups() if value is not None),
+            "",
+        ).replace(",", ".")
         row = next((row for row in _CHATBOT_ADULT_SIZE_GUIDE if row[0] == requested_size), None)
         if row:
             return (
@@ -1089,6 +1129,11 @@ def _chatbot_faq_response(intent, message):
             "Elige un modelo y su talla y agrégalo al carrito. Si aún no has iniciado sesión, "
             "el carrito temporal se conserva y se te pedirá iniciar sesión para continuar. Después "
             "completa tus datos de entrega y selecciona uno de los métodos de pago disponibles en el checkout."
+        )
+    if intent == "favorites_help":
+        return (
+            "Puedes guardar o quitar un modelo con el botón de corazón de su tarjeta. Los favoritos se "
+            "guardan en el almacenamiento local de este navegador; la página Mis favoritos requiere iniciar sesión."
         )
     return ""
 
@@ -1142,7 +1187,7 @@ def _chatbot_provider_response(message, history):
     return "\n\n".join(responses)
 
 
-def _chatbot_role_response(message, role, history):
+def _chatbot_role_response(message, role, history, favorite_ids=()):
     normalized = _chatbot_normalize(message)
     if role == "provider":
         return _chatbot_provider_response(message, history)
@@ -1182,6 +1227,11 @@ def _chatbot_role_response(message, role, history):
         return "Directorio interno de proveedores:\n" + "\n".join(entries)
 
     intents = _chatbot_classify_intents(message)
+    if (
+        re.fullmatch(r"\s*\d{1,2}(?:[.,]\d{1,2})?\s*", normalized)
+        and _chatbot_has_size_context(history)
+    ):
+        intents.append("size")
     responses = [
         _chatbot_faq_response(intent, message)
         for intent in intents
@@ -1190,30 +1240,88 @@ def _chatbot_role_response(message, role, history):
 
     if "cart" in intents:
         if role in {"provider", "admin"}:
-            responses.append("El carrito de compras está disponible para clientes; inicia sesión como cliente para consultarlo.")
+            responses.append(
+                f"Para consultar tu carrito, inicia sesión como cliente: "
+                f"{url_for('login', next=url_for('carrito'))}"
+            )
+        elif role != "customer":
+            responses.append(
+                f"Para consultar tu carrito, inicia sesión como cliente: "
+                f"{url_for('login', next=url_for('carrito'))}"
+            )
         else:
-            cart_name = "cart" if role == "customer" else "pending_items"
-            items, total = _cart_details(cart_name)
+            items, total = _cart_details()
             if not items:
                 responses.append("Tu carrito está vacío. Puedes agregar tenis desde el catálogo.")
             else:
+                article_count = sum(item["cantidad"] for item in items)
+                model_count = len({item["producto"]["id_producto"] for item in items})
                 contents = "\n".join(
                     f"• {item['producto']['nombre']} · talla {item['talla_seleccionada']} × "
                     f"{item['cantidad']} — ${item['producto']['precio']:,.2f} MXN por par "
                     f"(subtotal ${item['subtotal']:,.2f} MXN)."
                     for item in items
                 )
-                login_note = (
-                    " Inicia sesión como cliente para continuar con la compra."
-                    if role != "customer" else ""
+                responses.append(
+                    f"Tu carrito tiene {article_count} par(es) en {model_count} modelo(s) distinto(s):\n"
+                    f"{contents}\nTotal: ${total:,.2f} MXN."
+                )
+
+    if "favorites_help" in intents:
+        if role == "customer":
+            responses.append(_chatbot_faq_response("favorites_help", message))
+        else:
+            responses.append(
+                "Pulsa el corazón en la tarjeta de un modelo para guardarlo. Si no has iniciado sesión, "
+                "la selección queda temporalmente en esta sesión; inicia sesión para abrir tu lista de favoritos: "
+                f"{url_for('login', next=url_for('favoritos'))}"
+            )
+    elif "favorites" in intents:
+        if role != "customer":
+            responses.append(
+                f"Para consultar tus favoritos, inicia sesión como cliente: "
+                f"{url_for('login', next=url_for('favoritos'))}"
+            )
+        elif not favorite_ids:
+            responses.append(
+                "No tienes tenis guardados en favoritos en este navegador. "
+                "Los favoritos se almacenan localmente y no se sincronizan entre dispositivos o cuentas."
+            )
+        else:
+            placeholders = ", ".join(["%s"] * len(favorite_ids))
+            products = _db_query(
+                "SELECT id_producto, nombre, marca, color, talla, precio FROM productos "
+                f"WHERE activo = TRUE AND id_producto IN ({placeholders})",
+                tuple(int(favorite_id) for favorite_id in favorite_ids),
+                fetch_all=True,
+            )
+            products_by_id = {str(product["id_producto"]): product for product in products}
+            favorite_products = [
+                products_by_id[favorite_id]
+                for favorite_id in favorite_ids
+                if favorite_id in products_by_id
+            ]
+            if not favorite_products:
+                responses.append(
+                    "No hay modelos activos entre los favoritos guardados en este navegador. "
+                    "La lista puede incluir productos que ya no están disponibles."
+                )
+            else:
+                details = "\n".join(
+                    f"• {product['nombre']} ({product['marca']}) — ${product['precio']:,.2f} MXN."
+                    for product in favorite_products
                 )
                 responses.append(
-                    f"Esto tienes en tu carrito:\n{contents}\nTotal: ${total:,.2f} MXN.{login_note}"
+                    f"Tienes {len(favorite_products)} modelo(s) activo(s) guardado(s) en favoritos "
+                    f"en este navegador:\n{details}\nEstos favoritos no se sincronizan entre cuentas o dispositivos."
                 )
 
     if "orders" in intents:
         if role != "customer":
-            responses.append("Inicia sesión como cliente para consultar el estado de tus pedidos.")
+            responses.append(
+                f"Para consultar tus compras y pedidos, inicia sesión como cliente: "
+                f"{url_for('login', next=url_for('mis_pedidos'))}"
+            )
         else:
             order_states = _db_query(
                 """SELECT estado, COUNT(*) AS cantidad FROM pedidos
@@ -1302,6 +1410,19 @@ def chatbot_message():
     if not isinstance(history, list) or any(not isinstance(item, str) for item in history):
         return jsonify(error="El contexto de conversación no es válido."), 400
     history = [item.strip()[:500] for item in history[-8:] if item.strip()]
+    raw_favorite_ids = payload.get("favorites", [])
+    if (
+        not isinstance(raw_favorite_ids, list)
+        or len(raw_favorite_ids) > 100
+        or any(
+            not isinstance(favorite_id, (str, int))
+            or not str(favorite_id).isdigit()
+            or int(favorite_id) > 2147483647
+            for favorite_id in raw_favorite_ids
+        )
+    ):
+        return jsonify(error="La lista de favoritos no es válida."), 400
+    favorite_ids = list(dict.fromkeys(str(int(favorite_id)) for favorite_id in raw_favorite_ids))
 
     role = session.get("role", "guest") if session.get("loggedin") else "guest"
     if role not in {"guest", "customer", "provider", "admin"}:
@@ -1321,7 +1442,7 @@ def chatbot_message():
             return jsonify(error="Tu acceso de proveedor está inactivo. Inicia sesión o contacta al equipo administrador."), 403
 
     try:
-        reply = _chatbot_role_response(message, role, history)
+        reply = _chatbot_role_response(message, role, history, favorite_ids)
     except Exception:
         logging.exception("Chatbot request failed")
         return jsonify(error="No pude consultar la información en este momento. Inténtalo de nuevo en unos minutos."), 503

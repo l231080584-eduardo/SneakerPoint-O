@@ -243,7 +243,19 @@
                 message.className = `chatbot-message chatbot-message-${sender}`;
                 message.setAttribute('aria-label', sender === 'assistant' ? 'Respuesta del asistente' : 'Tu mensaje');
                 const content = document.createElement('p');
-                content.textContent = text;
+                const loginLinkPattern = /\/login\?next=\/(?:carrito|favoritos|mis-pedidos)\b/;
+                const loginLinkMatch = text.match(loginLinkPattern);
+                if (loginLinkMatch) {
+                    const linkStart = loginLinkMatch.index;
+                    const linkEnd = linkStart + loginLinkMatch[0].length;
+                    content.append(document.createTextNode(text.slice(0, linkStart)));
+                    const loginLink = document.createElement('a');
+                    loginLink.href = loginLinkMatch[0];
+                    loginLink.textContent = 'Iniciar sesión';
+                    content.append(loginLink, document.createTextNode(text.slice(linkEnd)));
+                } else {
+                    content.textContent = text;
+                }
                 message.append(content);
                 messageList.append(message);
                 messageList.scrollTop = messageList.scrollHeight;
@@ -280,7 +292,11 @@
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify({ message: text, history: userHistory.slice(-8) }),
+                        body: JSON.stringify({
+                            message: text,
+                            history: userHistory.slice(-8),
+                            favorites: isCustomer ? readFavorites() : []
+                        }),
                         signal: controller.signal
                     });
                     const result = await response.json();
