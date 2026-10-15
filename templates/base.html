@@ -270,10 +270,8 @@
                 form.setAttribute('aria-busy', 'true');
                 status.textContent = assistantRole === 'provider'
                     ? 'Consultando tus productos y el catálogo...'
-                    : 'Consultando el catálogo...';
+                    : 'Consultando tu pregunta...';
                 addMessage(text, 'user');
-                userHistory.push(text);
-                if (userHistory.length > 8) userHistory.shift();
 
                 const controller = new AbortController();
                 const timeout = window.setTimeout(() => controller.abort(), 20000);
@@ -282,22 +280,28 @@
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify({ message: text, history: userHistory.slice(0, -1) }),
+                        body: JSON.stringify({ message: text, history: userHistory.slice(-8) }),
                         signal: controller.signal
                     });
                     const result = await response.json();
                     if (!response.ok) throw new Error(result.error || 'No se pudo procesar tu mensaje.');
+                    if (typeof result.reply !== 'string' || !result.reply.trim()) {
+                        throw new Error('El asistente no devolvió una respuesta. Inténtalo de nuevo.');
+                    }
                     if ((assistantRole === 'provider' && result.role !== 'provider')
                         || (assistantRole === 'customer' && !['guest', 'customer'].includes(result.role))) {
                         throw new Error('No se pudo validar el asistente para esta sesión.');
                     }
                     addMessage(result.reply, 'assistant');
+                    userHistory.push(text);
+                    if (userHistory.length > 8) userHistory.shift();
                     status.textContent = '';
                 } catch (error) {
                     const errorMessage = error.name === 'AbortError'
                         ? 'La consulta tardó demasiado. Inténtalo de nuevo.'
                         : error.message || 'No pude conectar con el asistente. Inténtalo de nuevo.';
                     addMessage(errorMessage, 'assistant');
+                    input.value = text;
                     status.textContent = 'No se pudo completar la consulta.';
                 } finally {
                     window.clearTimeout(timeout);

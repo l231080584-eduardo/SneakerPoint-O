@@ -404,6 +404,8 @@ def index():
         productos=productos,
         search_query=query,
         pending_favorites=pending_favorites,
+        size_guide_adult=_CHATBOT_ADULT_SIZE_GUIDE,
+        size_guide_children=_CHATBOT_CHILD_SIZE_GUIDE,
     )
 
 
@@ -657,6 +659,67 @@ _CHATBOT_STOP_WORDS = {
     "caro", "caros", "cara", "caras", "color", "colores", "talla", "tallas", "cuanto", "cuesta",
     "menos", "menor", "hasta", "maximo",
     "saber", "tenis", "tienen", "tienes", "un", "una", "unas", "unos", "ver", "y",
+    "cuestan", "costar", "costaria", "costarian", "serian", "salen", "sale",
+}
+
+_CHATBOT_ADULT_SIZE_GUIDE = (
+    ("24", "38", "6", "7.5", "23.5–24"),
+    ("24.5", "39", "6.5", "8", "24–24.5"),
+    ("25", "40", "7", "8.5", "24.5–25"),
+    ("25.5", "40.5", "7.5", "9", "25–25.5"),
+    ("26", "41", "8", "9.5", "25.5–26"),
+    ("26.5", "42", "8.5", "10", "26–26.5"),
+    ("27", "42.5", "9", "10.5", "26.5–27"),
+    ("27.5", "43", "9.5", "11", "27–27.5"),
+    ("28", "44", "10", "11.5", "27.5–28"),
+    ("28.5", "44.5", "10.5", "12", "28–28.5"),
+    ("29", "45", "11", "12.5", "28.5–29"),
+    ("29.5", "45.5", "11.5", "13", "29–29.5"),
+    ("30", "46", "12", "13.5", "29.5–30"),
+)
+_CHATBOT_CHILD_SIZE_GUIDE = tuple(
+    (f"{size / 2:g}", f"{size / 2:g}–{(size + 1) / 2:g}")
+    for size in range(24, 48)
+)
+_CHATBOT_FAQ = {
+    "hours": (
+        "Nuestro horario de atención es de lunes a viernes, de 9:00 a 18:00, y sábados de 10:00 a 14:00 "
+        "(hora del centro de México). Los domingos no hay atención. Puedes escribirnos en cualquier "
+        "momento a sneakerpoint@gmail.com y te responderemos dentro del horario de atención."
+    ),
+    "shipping": (
+        "¡Sí, hacemos envíos a todo México! El envío estándar cuesta $99 MXN y es gratis en compras "
+        "mayores a $1,500 MXN. El tiempo estimado de entrega es de 3 a 7 días hábiles, según tu ubicación. "
+        "Te compartiremos los datos de seguimiento cuando tu pedido salga."
+    ),
+    "returns": (
+        "Aceptamos solicitudes de cambios y devoluciones dentro de los 30 días naturales posteriores a la entrega. "
+        "El calzado debe estar sin uso y en su caja original. La solicitud requiere revisión; una vez aprobado "
+        "el reembolso, puede tardar de 5 a 10 días hábiles en reflejarse, según tu método de pago. "
+        "Escríbenos a sneakerpoint@gmail.com o llama al 55 6127 2829 para iniciar la solicitud."
+    ),
+    "payment": (
+        "En el checkout puedes elegir transferencia bancaria, efectivo al recibir o Mercado Pago. "
+        "La opción disponible y las instrucciones se muestran al finalizar tu compra."
+    ),
+    "contact": "Puedes contactarnos por correo en sneakerpoint@gmail.com o llamar al 55 6127 2829.",
+    "location": (
+        "No hay una dirección de tienda publicada en la información disponible. "
+        "Puedes preguntar por correo en sneakerpoint@gmail.com o llamar al 55 6127 2829."
+    ),
+    "social": (
+        "Facebook, Instagram y X aparecen como próximamente; no hay enlaces oficiales de redes sociales "
+        "publicados todavía. Puedes contactarnos por correo en sneakerpoint@gmail.com."
+    ),
+    "login": (
+        "Para comprar, crea una cuenta desde “Regístrate” o inicia sesión. Después agrega los productos al "
+        "carrito, completa tus datos de entrega y elige un método de pago disponible."
+    ),
+    "technical": (
+        "Si una página no carga, prueba actualizarla o volver a iniciar sesión. Si el problema continúa, "
+        "escríbenos a sneakerpoint@gmail.com o llama al 55 6127 2829."
+    ),
+    "promotions": "No hay promociones o descuentos vigentes publicados en la información disponible.",
 }
 
 
@@ -670,6 +733,74 @@ def _chatbot_tokens(value):
         token for token in re.findall(r"[a-z0-9]+", _chatbot_normalize(value))
         if len(token) > 1 and token not in _CHATBOT_STOP_WORDS
     ]
+
+
+def _chatbot_classify_intents(message):
+    normalized = _chatbot_normalize(message)
+    intents = []
+    patterns = (
+        ("social", r"\b(facebook|face|fb|instagram|insta|redes sociales|redes|seguirlos|pagina oficial|canales oficiales|twitter)\b"),
+        ("hours", r"\b(horario|horarios|abren|abierto|atienden|cierran|domingo|domingos)\b"),
+        ("shipping", r"\b(envio|envios|entrega|entregas|paquete|paqueteria|rastreo|rastrear|seguimiento|tarda|tardar|tardara|llegar|llegue|yegar)\b"),
+        ("returns", r"\b(devolucion|devolver|devoluciones|cambio|cambiar|reembolso|garantia|no me queda|no le queda)\b"),
+        ("size", r"\b(guia de tallas?|medir|equivalencia|equivalencias|que talla soy|saber que talla|talla corresponde|medida del pie|largo del pie|pie mide|mido \d|mx\s*\d{2})\b"),
+        ("payment", r"\b(pago|pagos|pagar|metodos de pago|transferencia|efectivo|mercado pago|tarjeta|aceptan .{0,25} pagar)\b"),
+        ("location", r"\b(ubicacion|direccion|donde se encuentran|donde estan|sucursal|tienda fisica)\b"),
+        ("contact", r"\b(contacto|contactar|contactarlos?|telefono|correo|email|escribirles|llamarles)\b"),
+        ("account", r"\b(registro|registrarme|registrar|cuenta|iniciar sesion|login|acceso|contrasena)\b"),
+        ("technical", r"\b(no carga|no funciona|error|problema tecnico|falla|no puedo entrar|no me deja|no abre)\b"),
+        ("promotions", r"\b(promocion|promociones|descuento|descuentos|oferta|ofertas)\b"),
+        ("social", r"\b(que redes|cuales redes|red social|pagina de facebook|pagina oficial)\b"),
+        ("purchase", r"\b(como (?:puedo )?comprar|como hago una compra)\b"),
+        ("clarification", r"\b(no entendi|no entiendo|respuesta anterior|que quisiste decir|no comprendi)\b"),
+    )
+    for intent, pattern in patterns:
+        if re.search(pattern, normalized) and intent not in intents:
+            intents.append(intent)
+
+    if re.search(r"\b(mi carrito|carrito de compras|que hay en el carrito|mi compra)\b", normalized):
+        intents.append("cart")
+    if (
+        re.search(r"\b(mis pedidos|mis compras|mi pedido|estado del pedido|seguimiento de mi pedido|rastrear mi pedido)\b", normalized)
+        and not re.search(r"\b(cuanto tarda|cuando llega|fecha de entrega)\b", normalized)
+    ):
+        intents.append("orders")
+
+    has_product_terms = bool(re.search(
+        r"\b(tenis|zapatos|calzado|producto|productos|modelo|modelos|catalogo|marca|marcas|"
+        r"color|colores|stock|existencia|existencias|disponible|disponibles|disponibilidad|"
+        r"nike|adidas|puma|reebok|converse|vans|new balance|jordan|asics|under armour)\b",
+        normalized,
+    ))
+    size_is_product_filter = bool(
+        re.search(r"\btalla\s*\d", normalized)
+        and not re.search(r"\b(guia|equivalencia|medida|pie)\b", normalized)
+    )
+    if has_product_terms or size_is_product_filter:
+        intents.append("catalog")
+
+    if re.search(r"^\s*(hola|ola|buenas(?:\s+(?:tardes|noches))?|buenos dias)\b", normalized):
+        intents.append("greeting")
+    if re.search(r"\b(gracias|muchas gracias|te agradezco)\b", normalized):
+        intents.append("thanks")
+    if re.search(r"\b(adios|hasta luego|nos vemos|bye)\b", normalized):
+        intents.append("farewell")
+    return intents
+
+
+def _chatbot_previous_catalog_terms(history):
+    context_breakers = {
+        "account", "cart", "contact", "hours", "location", "orders", "payment",
+        "returns", "shipping", "size", "social", "technical",
+    }
+    for previous_message in reversed(history[-8:]):
+        previous_intents = _chatbot_classify_intents(previous_message)
+        if context_breakers.intersection(previous_intents):
+            return []
+        previous_tokens = [token for token in _chatbot_tokens(previous_message) if not token.isdigit()]
+        if previous_tokens:
+            return previous_tokens
+    return []
 
 
 def _chatbot_catalog(message, history):
@@ -686,12 +817,12 @@ def _chatbot_catalog(message, history):
     tokens = [token for token in _chatbot_tokens(message) if not token.isdigit()]
     follow_up = bool(re.search(
         r"\b(y|tambien|otra|otro|otras|otros|mas|cuanto|cuesta|precio|disponible|talla|color|"
-        r"barato|baratos|barata|baratas|economico|economicos|cara|caro|caros|premium|"
+        r"cuestan|sale|salen|barato|baratos|barata|baratas|economico|economicos|cara|caro|caros|premium|"
         r"menos|menor|hasta|maximo)\b",
         normalized,
     ))
     if follow_up and history:
-        previous_tokens = [token for token in _chatbot_tokens(history[-1]) if not token.isdigit()]
+        previous_tokens = _chatbot_previous_catalog_terms(history)
         tokens = list(dict.fromkeys(previous_tokens + tokens))
     tokens = tokens[:5]
 
@@ -762,81 +893,137 @@ def _chatbot_catalog(message, history):
     return answer
 
 
+def _chatbot_size_response(message):
+    normalized = _chatbot_normalize(message)
+    measurement_match = re.search(r"\b(\d{1,2}(?:[.,]\d{1,2})?)\s*(?:cm|centimetros?)\b", normalized)
+    if measurement_match:
+        measurement = float(measurement_match.group(1).replace(",", "."))
+        guide_rows = _CHATBOT_ADULT_SIZE_GUIDE
+        if measurement < 23.5:
+            guide_rows = _CHATBOT_CHILD_SIZE_GUIDE
+        matches = []
+        for row in guide_rows:
+            lower, upper = (float(value.replace(",", ".")) for value in row[-1].split("–"))
+            if lower <= measurement <= upper:
+                matches.append(row)
+        if not matches:
+            return "Esa medida está fuera de los rangos de la guía publicada. Consulta con la tienda para confirmar la talla adecuada."
+        if guide_rows is _CHATBOT_CHILD_SIZE_GUIDE:
+            sizes = ", ".join(f"MX infantil {row[0]}" for row in matches)
+        else:
+            sizes = "; ".join(
+                f"MX {row[0]} (EU {row[1]}, US hombre {row[2]}, US mujer {row[3]})"
+                for row in matches
+            )
+        return (
+            f"Para un pie de {measurement:g} cm, la guía muestra {sizes}. "
+            "Es una equivalencia orientativa; el ajuste puede variar según la marca y el modelo."
+        )
+
+    conversion_match = re.search(r"\bmx\s*(\d{2}(?:[.,]5)?)\b", normalized)
+    if conversion_match:
+        requested_size = conversion_match.group(1).replace(",", ".")
+        row = next((row for row in _CHATBOT_ADULT_SIZE_GUIDE if row[0] == requested_size), None)
+        if row:
+            return (
+                f"En la guía, MX {row[0]} equivale aproximadamente a EU {row[1]}, "
+                f"US hombre {row[2]} o US mujer {row[3]}; el largo de pie indicado es {row[4]} cm."
+            )
+
+    return (
+        "La guía de la tienda recomienda medir ambos pies de pie, del talón a la punta del dedo más largo, "
+        "y usar la medida del pie mayor. Las equivalencias son aproximadas y pueden variar por marca y modelo. "
+        "Dime la longitud en centímetros o la talla MX que quieres convertir."
+    )
+
+
+def _chatbot_faq_response(intent, message):
+    normalized = _chatbot_normalize(message)
+    if intent == "hours":
+        return _CHATBOT_FAQ["hours"]
+    if intent == "shipping":
+        if any(word in normalized for word in ("rastrear", "rastreo", "seguimiento")):
+            return _CHATBOT_FAQ["shipping"] + " El número de seguimiento se comparte cuando el pedido sale."
+        return _CHATBOT_FAQ["shipping"]
+    if intent == "returns":
+        return _CHATBOT_FAQ["returns"]
+    if intent == "payment":
+        return _CHATBOT_FAQ["payment"]
+    if intent == "social":
+        return _CHATBOT_FAQ["social"]
+    if intent == "location":
+        return _CHATBOT_FAQ["location"]
+    if intent == "contact":
+        return _CHATBOT_FAQ["contact"]
+    if intent == "account":
+        return _CHATBOT_FAQ["login"]
+    if intent == "technical":
+        return _CHATBOT_FAQ["technical"]
+    if intent == "size":
+        return _chatbot_size_response(message)
+    if intent == "promotions":
+        return _CHATBOT_FAQ["promotions"]
+    if intent == "purchase":
+        return (
+            "Elige un modelo y su talla, agrégalo al carrito, inicia sesión o crea una cuenta, "
+            "completa tus datos de entrega y selecciona uno de los métodos de pago disponibles en el checkout."
+        )
+    return ""
+
+
 def _chatbot_provider_response(message, history):
     normalized = _chatbot_normalize(message)
+    intents = _chatbot_classify_intents(message)
 
-    if any(word in normalized for word in ("pedido", "pedidos", "cliente", "clientes", "carrito", "ventas")):
+    if any(intent in intents for intent in ("cart", "orders")) or re.search(
+        r"\b(pedido|pedidos|cliente|clientes|carrito|ventas)\b", normalized
+    ):
         return "No tengo acceso a pedidos, carritos ni información de clientes. Puedo consultar el catálogo público y el estado de tus propios productos."
 
-    if re.search(
+    products_intent = bool(re.search(
         r"\b(mis|mi)\b.*\b(productos?|propuestas?|publicaciones?)\b"
         r"|\b(estado|revision|revisar)\b.*\b(productos?|propuestas?|publicaciones?)\b",
         normalized,
-    ):
+    ))
+    responses = [
+        _chatbot_faq_response(intent, message)
+        for intent in intents
+        if intent in {"account", "contact", "hours", "location", "payment", "promotions", "purchase", "returns", "shipping", "size", "social", "technical"}
+    ]
+    if products_intent:
         products = _db_query(
             """SELECT nombre, marca, estado FROM productos_proveedor
                WHERE id_proveedor=%s ORDER BY fecha_creacion DESC LIMIT 8""",
             (session["id_proveedor"],), fetch_all=True,
         )
         if not products:
-            return "Aún no has enviado productos. Puedes proponer un modelo desde tu portal de proveedor."
-        return "Estado de tus productos:\n" + "\n".join(
-            f"• {product['nombre']} ({product['marca']}): {product['estado']}."
-            for product in products
-        )
-
-    if any(word in normalized for word in ("proveedor", "proveedores", "directorio")):
-        return "Solo puedo consultar tus propios productos y el catálogo público; no tengo acceso al directorio de otros proveedores."
-
-    if any(word in normalized for word in ("envio", "envios", "entrega", "devolucion", "reembolso", "horario")):
-        return "No tengo información confirmada sobre políticas de envíos, devoluciones u horarios. Puedo consultar el catálogo público o el estado de tus productos."
-
-    if any(word in normalized for word in ("hola", "buenas", "buenos dias", "buenas tardes", "buenas noches")):
+            responses.append("Aún no has enviado productos. Puedes proponer un modelo desde tu portal de proveedor.")
+        else:
+            responses.append(
+                "Estado de tus productos:\n" + "\n".join(
+                    f"• {product['nombre']} ({product['marca']}): {product['estado']}."
+                    for product in products
+                )
+            )
+    elif "catalog" in intents:
+        responses.append(_chatbot_catalog(message, history))
+    elif not responses and intents == ["greeting"]:
         name = session.get("nombre_proveedor")
         greeting = f"¡Hola, {name}! " if name else "¡Hola! "
-        return greeting + "Este asistente consulta el catálogo público y el estado de tus propios productos."
-
-    catalog_intent = bool(
-        _chatbot_tokens(message)
-        or any(word in normalized for word in ("catalogo", "tenis", "modelo", "marca", "color", "talla", "precio", "stock", "disponible", "estilo"))
-    )
-    if catalog_intent:
-        return _chatbot_catalog(message, history)
-
-    return "Puedo consultar el catálogo público y el estado de tus propios productos. No tengo acceso a pedidos de clientes ni a datos de otros proveedores."
+        responses.append(greeting + "Este asistente consulta el catálogo público y el estado de tus propios productos.")
+    elif not responses and intents == ["thanks"]:
+        responses.append("¡Con gusto! Si necesitas otra consulta sobre el catálogo o tus productos, aquí estoy.")
+    elif not responses and intents == ["farewell"]:
+        responses.append("¡Hasta luego! Estoy aquí si necesitas ayuda con tus productos.")
+    elif not responses:
+        responses.append("Puedo consultar el catálogo público y el estado de tus propios productos. No tengo acceso a pedidos de clientes ni a datos de otros proveedores.")
+    return "\n\n".join(responses)
 
 
 def _chatbot_role_response(message, role, history):
     normalized = _chatbot_normalize(message)
-
     if role == "provider":
         return _chatbot_provider_response(message, history)
-
-    if any(term in normalized for term in ("envio", "envios", "entrega", "paquete")):
-        return "No tengo información confirmada sobre cobertura, costos o tiempos de envío. Consulta los datos de contacto de la tienda para confirmar esta información."
-    if any(term in normalized for term in ("devolucion", "devolver", "reembolso", "cambio")):
-        return "No tengo información confirmada sobre cambios o devoluciones. Consulta los datos de contacto de la tienda para confirmar esta información."
-    if any(term in normalized for term in ("horario", "horarios", "abren", "abierto", "atienden", "cierran")):
-        return "No tengo información confirmada sobre horarios de atención. Consulta los datos de contacto de la tienda para confirmar esta información."
-
-    if any(word in normalized for word in ("proveedor", "proveedores", "contacto del proveedor", "contactar al proveedor")):
-        if role == "admin":
-            providers = _db_query(
-                """SELECT razon_social, contacto, correo, telefono, localidad
-                   FROM proveedores ORDER BY razon_social LIMIT 8""",
-                fetch_all=True,
-            )
-            if not providers:
-                return "No hay proveedores registrados en el directorio por el momento."
-            entries = []
-            for provider in providers:
-                contact = provider.get("contacto") or "Contacto no indicado"
-                details = [provider["razon_social"], contact, provider.get("correo") or "Sin correo"]
-                if provider.get("telefono"):
-                    details.append(provider["telefono"])
-                entries.append("• " + " · ".join(details))
-            return "Directorio interno de proveedores:\n" + "\n".join(entries)
-        return "Puedo ayudarte a buscar tenis del catálogo. El contacto y directorio de proveedores son de uso exclusivo del equipo administrador."
 
     if role == "admin" and any(word in normalized for word in ("resumen", "estadistica", "ventas", "pendiente", "dashboard")):
         summary = {
@@ -852,77 +1039,112 @@ def _chatbot_role_response(message, role, history):
             f"• Propuestas pendientes: {summary['pending']}\n"
             f"• Pedidos no cancelados: {summary['sales']}"
         )
-
-    if role == "customer" and any(word in normalized for word in ("mi carrito", "carrito de compras", "que hay en el carrito")):
-        items, total = _cart_details()
-        if not items:
-            return "Tu carrito está vacío. Puedes agregar tenis desde el catálogo."
-        contents = "\n".join(
-            f"• {item['producto']['nombre']} · talla {item['talla_seleccionada']} × {item['cantidad']}."
-            for item in items
+    if role == "admin" and any(word in normalized for word in ("proveedores", "directorio", "contacto del proveedor")):
+        providers = _db_query(
+            """SELECT razon_social, contacto, correo, telefono, localidad
+               FROM proveedores ORDER BY razon_social LIMIT 8""",
+            fetch_all=True,
         )
-        return f"Esto tienes en tu carrito:\n{contents}\nTotal: ${total:,.2f} MXN."
+        if not providers:
+            return "No hay proveedores registrados en el directorio por el momento."
+        entries = []
+        for provider in providers:
+            details = [
+                provider["razon_social"],
+                provider.get("contacto") or "Contacto no indicado",
+                provider.get("correo") or "Sin correo",
+            ]
+            if provider.get("telefono"):
+                details.append(provider["telefono"])
+            entries.append("• " + " · ".join(details))
+        return "Directorio interno de proveedores:\n" + "\n".join(entries)
 
-    if role == "customer" and any(word in normalized for word in ("mis pedidos", "mis compras", "mi pedido", "estado del pedido", "estado de mi pedido")):
-        orders = _db_query(
-            """SELECT id_pedido, estado, total, fecha_creacion FROM pedidos
-               WHERE id_clientes=%s ORDER BY fecha_creacion DESC LIMIT 5""",
-            (session["id_cliente"],), fetch_all=True,
-        )
-        if not orders:
-            return "Todavía no tienes pedidos registrados. Cuando confirmes una compra podrás consultarla aquí."
-        return "Tus pedidos más recientes:\n" + "\n".join(
-            f"• Pedido #{order['id_pedido']}: {order['estado']} — ${order['total']:,.2f} MXN."
-            for order in orders
-        )
+    intents = _chatbot_classify_intents(message)
+    responses = [
+        _chatbot_faq_response(intent, message)
+        for intent in intents
+        if intent in {"account", "contact", "hours", "location", "payment", "promotions", "purchase", "returns", "shipping", "size", "social", "technical"}
+    ]
 
-    if (
-        re.search(r"\bcomo (?:puedo )?comprar\b", normalized)
-        or any(word in normalized for word in ("carrito", "pagar", "pago", "envio", "entrega"))
-    ):
-        answer = (
-            "Elige el modelo, selecciona talla y cantidad y agrégalo al carrito. Completa los datos que "
-            "solicite el checkout y elige uno de los métodos de pago que aparezcan ahí. El precio y la "
-            "disponibilidad se consultan desde el catálogo al procesar el pedido."
-        )
-        if role == "guest":
-            answer += " Puedes crear una cuenta o iniciar sesión para completar la compra."
-        return answer
+    if "cart" in intents:
+        if role != "customer":
+            responses.append("Inicia sesión como cliente para consultar tu carrito.")
+        else:
+            items, total = _cart_details()
+            if not items:
+                responses.append("Tu carrito está vacío. Puedes agregar tenis desde el catálogo.")
+            else:
+                contents = "\n".join(
+                    f"• {item['producto']['nombre']} · talla {item['talla_seleccionada']} × {item['cantidad']}."
+                    for item in items
+                )
+                responses.append(f"Esto tienes en tu carrito:\n{contents}\nTotal: ${total:,.2f} MXN.")
 
-    if any(word in normalized for word in ("devolucion", "devolver", "cambio", "garantia", "reembolso")):
-        return "No tengo información confirmada sobre cambios o devoluciones. Consulta los datos de contacto de la tienda para confirmar esta información."
-
-    if any(word in normalized for word in ("hola", "buenas", "buenos dias", "buenas tardes", "buenas noches")):
-        name = session.get("nombre_cliente") or session.get("nombre_proveedor")
-        greeting = f"¡Hola, {name}! " if name else "¡Hola! "
-        if role == "admin":
-            return greeting + "Puedo consultar el catálogo, el directorio privado de proveedores y el resumen administrativo. ¿Qué necesitas?"
-        if role == "provider":
-            return greeting + "Puedo buscar modelos del catálogo público o revisar el estado de tus productos."
-        return greeting + "Puedo buscar modelos y precios del catálogo, y ayudarte con tu compra. ¿Qué tenis buscas?"
-
-    if role == "admin" and any(word in normalized for word in ("proveedores", "directorio", "contacto")):
-        return _chatbot_role_response(message, role, history)
-    if role == "customer" and any(word in normalized for word in ("pedido", "compra")) and any(
-        word in normalized for word in ("mis", "mi", "estado")
-    ):
-        return _chatbot_role_response(message, role, history)
+    if "orders" in intents:
+        if role != "customer":
+            responses.append("Inicia sesión como cliente para consultar el estado de tus pedidos.")
+        else:
+            orders = _db_query(
+                """SELECT id_pedido, estado, total, fecha_creacion FROM pedidos
+                   WHERE id_clientes=%s ORDER BY fecha_creacion DESC LIMIT 5""",
+                (session["id_cliente"],), fetch_all=True,
+            )
+            if not orders:
+                responses.append("Todavía no tienes pedidos registrados. Cuando confirmes una compra podrás consultarla aquí.")
+            else:
+                responses.append(
+                    "Tus pedidos más recientes:\n" + "\n".join(
+                        f"• Pedido #{order['id_pedido']}: {order['estado']} — ${order['total']:,.2f} MXN."
+                        for order in orders
+                    )
+                )
 
     catalog_follow_up = bool(
-        history
-        and re.search(r"\b(y|tambien|otra|otro|otras|otros|mas|cuanto|cuesta|precio|disponible|talla|color|barato|baratos|economico|economicos|caro|caros|menos|menor|hasta|maximo)\b", normalized)
+        _chatbot_previous_catalog_terms(history)
+        and re.search(
+            r"\b(y|tambien|otra|otro|otras|otros|mas|cuanto|cuesta|cuestan|precio|precios|"
+            r"disponible|talla|color|barato|barata|baratos|baratas|economico|economica|"
+            r"economicos|economicas|menor|maximo|maxima|menos)\b",
+            normalized,
+        )
+        and not any(intent != "catalog" for intent in intents)
     )
-    catalog_intent = bool(
-        _chatbot_tokens(message)
-        or catalog_follow_up
-        or any(word in normalized for word in ("catalogo", "tenis", "modelo", "marca", "color", "precio", "stock", "disponible", "recomienda", "barato", "economico", "caro"))
-    )
-    if catalog_intent:
-        return _chatbot_catalog(message, history)
-    return (
-        "Puedo ayudarte con el catálogo de tenis, precios y existencias. "
-        "También puedo orientarte sobre cómo comprar. ¿Qué marca, modelo o estilo te interesa?"
-    )
+    if "catalog" in intents or catalog_follow_up:
+        if not _chatbot_tokens(message) and re.search(r"\b(cuanto cuesta|cuanto cuestan|precio|precios)\b", normalized) and not catalog_follow_up:
+            responses.append("¿Qué marca o modelo quieres consultar? Buscaré el precio actual en el catálogo.")
+        else:
+            responses.append(_chatbot_catalog(message, history))
+
+    if "greeting" in intents:
+        name = session.get("nombre_cliente")
+        greeting = f"¡Hola, {name}! " if name else "¡Hola! "
+        responses.append(greeting + "Puedo ayudarte con el catálogo, la compra y la información de la tienda.")
+    if "clarification" in intents:
+        responses.append("Perdón por la confusión. ¿Qué tema querías consultar: un producto, tallas, envíos, devoluciones, pagos u horarios?")
+    if "thanks" in intents:
+        responses.append("¡Con gusto! Si tienes otra pregunta sobre la tienda, aquí estoy.")
+    if "farewell" in intents:
+        responses.append("¡Hasta luego! Gracias por visitar Sneaker Point.")
+
+    if role == "admin" and any(intent in intents for intent in ("contact",)):
+        responses.append("El directorio de proveedores es una consulta exclusiva del panel de administración.")
+
+    if not responses:
+        if (
+            not message.strip()
+            or re.fullmatch(r"[\W_]+", message, flags=re.UNICODE)
+            or re.fullmatch(r"[a-z]{8,}", normalized)
+        ):
+            return "No alcancé a entender tu mensaje. ¿Puedes reformularlo?"
+        if "clarification" in intents:
+            return "Perdón por la confusión. ¿Qué tema querías consultar: un producto, tallas, envíos, devoluciones, pagos u horarios?"
+        if re.search(r"\b(cuanto cuesta|cuanto cuestan|precio|precios)\b", normalized):
+            return "¿Qué marca o modelo quieres consultar? Buscaré el precio actual en el catálogo."
+        return (
+            "Soy el asistente de Sneaker Point y puedo ayudarte con productos, tallas, compras, pagos, "
+            "envíos, devoluciones, horarios y contacto. ¿Qué necesitas consultar?"
+        )
+    return "\n\n".join(dict.fromkeys(response for response in responses if response))
 
 
 @app.route("/api/chatbot", methods=["POST"])
