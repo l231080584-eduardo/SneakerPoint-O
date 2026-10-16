@@ -307,6 +307,28 @@ class ChatbotRegressionTests(unittest.TestCase):
                 self.assertIn(expected, response.json["reply"])
                 self.assertEqual(self.queries, [])
 
+    def test_faq_follow_up_uses_the_previous_topic(self):
+        cases = (
+            ("¿y cuánto cuesta?", "¿Cómo funcionan los envíos?", "$99 MXN"),
+            ("¿y cómo la solicito?", "¿Cómo funcionan las devoluciones?", "30 días naturales"),
+        )
+        for question, previous_question, expected in cases:
+            with self.subTest(question=question):
+                self.queries.clear()
+                response = self.ask(question, history=[previous_question])
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(expected, response.json["reply"])
+                self.assertEqual(self.queries, [])
+
+    def test_general_price_question_recommends_accessible_and_premium_options(self):
+        response = self.ask("¿Qué precios tienen?")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Opciones de precio más accesible", response.json["reply"])
+        self.assertIn("Opciones de precio premium", response.json["reply"])
+        self.assertIn("existencias actuales", response.json["reply"])
+        self.assertTrue(any("ORDER BY precio ASC" in sql for sql, _ in self.queries))
+        self.assertTrue(any("ORDER BY precio DESC" in sql for sql, _ in self.queries))
+
     def test_child_size_guide_and_inches_do_not_search_products(self):
         child = self.ask("Guía de tallas de niños")
         self.assertEqual(child.status_code, 200)

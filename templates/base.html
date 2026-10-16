@@ -238,6 +238,8 @@
             const openingMessage = chatbot.dataset.chatbotGreeting;
             const userHistory = [];
             let busy = false;
+            let activeRequest = null;
+            let conversationGeneration = 0;
 
             const addMessage = (text, sender) => {
                 const message = document.createElement('div');
@@ -269,8 +271,27 @@
                     input.focus();
                     messageList.scrollTop = messageList.scrollHeight;
                 } else {
+                    startNewConversation();
                     launcher.focus();
                 }
+            };
+
+            const startNewConversation = (statusMessage = '') => {
+                conversationGeneration += 1;
+                if (activeRequest) {
+                    activeRequest.abort();
+                    activeRequest = null;
+                }
+                busy = false;
+                input.disabled = false;
+                sendButton.disabled = false;
+                resetButton.disabled = false;
+                form.removeAttribute('aria-busy');
+                userHistory.length = 0;
+                input.value = '';
+                messageList.replaceChildren();
+                status.textContent = statusMessage;
+                addMessage(openingMessage, 'assistant');
             };
 
             const sendMessage = async (text) => {
@@ -287,6 +308,8 @@
                 addMessage(text, 'user');
 
                 const controller = new AbortController();
+                const requestGeneration = conversationGeneration;
+                activeRequest = controller;
                 const timeout = window.setTimeout(() => controller.abort(), 20000);
                 try {
                     const response = await fetch('/api/chatbot', {
@@ -309,11 +332,13 @@
                         || (assistantRole === 'customer' && !['guest', 'customer'].includes(result.role))) {
                         throw new Error('No se pudo validar el asistente para esta sesión.');
                     }
+                    if (requestGeneration !== conversationGeneration) return;
                     addMessage(result.reply, 'assistant');
                     userHistory.push(text);
                     if (userHistory.length > 8) userHistory.shift();
                     status.textContent = '';
                 } catch (error) {
+                    if (requestGeneration !== conversationGeneration) return;
                     const errorMessage = error.name === 'AbortError'
                         ? 'La consulta tardó demasiado. Inténtalo de nuevo.'
                         : error.message || 'No pude conectar con el asistente. Inténtalo de nuevo.';
@@ -322,12 +347,15 @@
                     status.textContent = 'No se pudo completar la consulta.';
                 } finally {
                     window.clearTimeout(timeout);
-                    busy = false;
-                    input.disabled = false;
-                    sendButton.disabled = false;
-                    resetButton.disabled = false;
-                    form.removeAttribute('aria-busy');
-                    input.focus();
+                    if (activeRequest === controller) {
+                        activeRequest = null;
+                        busy = false;
+                        input.disabled = false;
+                        sendButton.disabled = false;
+                        resetButton.disabled = false;
+                        form.removeAttribute('aria-busy');
+                        input.focus();
+                    }
                 }
             };
 
@@ -340,10 +368,7 @@
             });
             prompts.forEach((prompt) => prompt.addEventListener('click', () => sendMessage(prompt.dataset.chatbotPrompt)));
             resetButton.addEventListener('click', () => {
-                userHistory.length = 0;
-                messageList.replaceChildren();
-                status.textContent = 'Conversación nueva.';
-                addMessage(openingMessage, 'assistant');
+                startNewConversation('Conversación nueva.');
                 input.focus();
             });
             document.addEventListener('keydown', (event) => {

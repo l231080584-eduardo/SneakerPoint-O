@@ -841,6 +841,24 @@ def _chatbot_classify_intents(message):
     return intents
 
 
+def _chatbot_follow_up_faq_intent(message, intents, history):
+    faq_intents = {
+        "account", "contact", "hours", "location", "payment", "promotions",
+        "purchase", "returns", "shipping", "size", "social", "technical",
+    }
+    if not history or faq_intents.intersection(intents) or "catalog" in intents:
+        return None
+    normalized = _chatbot_normalize(message)
+    if len(normalized.split()) > 8 or not re.search(
+        r"\b(y|tambien|eso|ese|esa|entonces|cuanto|cuesta|costo|coste|tarda|"
+        r"cuando|como|cual|cuales|si|mas|me puedes|podrias|puedo)\b",
+        normalized,
+    ):
+        return None
+    previous_intents = _chatbot_classify_intents(history[-1])
+    return next((intent for intent in previous_intents if intent in faq_intents), None)
+
+
 def _chatbot_previous_catalog_terms(history):
     context_breakers = {
         "account", "cart", "contact", "hours", "location", "orders", "payment",
@@ -1029,6 +1047,17 @@ def _chatbot_catalog(message, history):
     return answer
 
 
+def _chatbot_price_recommendation():
+    economical = _chatbot_catalog("tenis baratos", [])
+    premium = _chatbot_catalog("tenis caros", [])
+    return (
+        "Con gusto. Para orientarte según tu presupuesto, te comparto algunas opciones "
+        "de precio más accesible y otras de precio premium, con su precio y existencias actuales:\n\n"
+        f"Opciones de precio más accesible:\n{economical}\n\n"
+        f"Opciones de precio premium:\n{premium}"
+    )
+
+
 def _chatbot_size_response(message):
     normalized = _chatbot_normalize(message)
     child_guide = bool(re.search(r"\b(ninos?|ninas?|infantil(?:es)?|kids|junior)\b", normalized))
@@ -1164,6 +1193,9 @@ def _chatbot_faq_response(intent, message):
 def _chatbot_provider_response(message, history):
     normalized = _chatbot_normalize(message)
     intents = _chatbot_classify_intents(message)
+    follow_up_intent = _chatbot_follow_up_faq_intent(message, intents, history)
+    if follow_up_intent:
+        intents.append(follow_up_intent)
 
     if any(intent in intents for intent in ("cart", "orders")) or re.search(
         r"\b(pedido|pedidos|cliente|clientes|carrito|ventas)\b", normalized
@@ -1255,6 +1287,9 @@ def _chatbot_role_response(message, role, history, favorite_ids=()):
         and _chatbot_has_size_context(history)
     ):
         intents.append("size")
+    follow_up_intent = _chatbot_follow_up_faq_intent(message, intents, history)
+    if follow_up_intent:
+        intents.append(follow_up_intent)
     responses = [
         _chatbot_faq_response(intent, message)
         for intent in intents
@@ -1380,7 +1415,7 @@ def _chatbot_role_response(message, role, history, favorite_ids=()):
     )
     if "catalog" in intents or catalog_follow_up:
         if not _chatbot_tokens(message) and re.search(r"\b(cuanto cuesta|cuanto cuestan|precio|precios)\b", normalized) and not catalog_follow_up:
-            responses.append("¿Qué marca o modelo quieres consultar? Buscaré el precio actual en el catálogo.")
+            responses.append(_chatbot_price_recommendation())
         else:
             responses.append(_chatbot_catalog(message, history))
 
@@ -1408,7 +1443,7 @@ def _chatbot_role_response(message, role, history, favorite_ids=()):
         if "clarification" in intents:
             return "Perdón por la confusión. ¿Qué tema querías consultar: un producto, tallas, envíos, devoluciones, pagos u horarios?"
         if re.search(r"\b(cuanto cuesta|cuanto cuestan|precio|precios)\b", normalized):
-            return "¿Qué marca o modelo quieres consultar? Buscaré el precio actual en el catálogo."
+            return _chatbot_price_recommendation()
         return (
             "Soy el asistente de Sneaker Point y puedo ayudarte con productos, tallas, compras, pagos, "
             "envíos, devoluciones, horarios y contacto. ¿Qué necesitas consultar?"
