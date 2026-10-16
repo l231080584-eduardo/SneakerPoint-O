@@ -240,7 +240,37 @@ class ChatbotRegressionTests(unittest.TestCase):
                 for model in expected_models:
                     self.assertIn(model, response.json["reply"])
                 self.assertTrue(self.queries)
-                self.assertIn(f"%{color}%", self.queries[-1][1])
+                root = index._CHATBOT_COLOR_SEARCH_ROOTS[color]
+                self.assertIn(f"%{root}%", self.queries[-1][1])
+
+    def test_color_variants_search_matching_stock(self):
+        products_by_root = {}
+        for color, root in index._CHATBOT_COLOR_SEARCH_ROOTS.items():
+            if root not in products_by_root:
+                product = {
+                    "id_producto": 100 + len(products_by_root),
+                    "nombre": f"Modelo {root}",
+                    "marca": "Sneaker Point",
+                    "estilo": "Casual",
+                    "descripcion": "",
+                    "color": color,
+                    "talla": "27",
+                    "precio": Decimal("2000.00"),
+                    "stock": 7,
+                    "activo": True,
+                }
+                products_by_root[root] = product
+                PRODUCTS.append(product)
+                self.addCleanup(PRODUCTS.remove, product)
+
+        for color, root in index._CHATBOT_COLOR_SEARCH_ROOTS.items():
+            with self.subTest(color=color):
+                self.queries.clear()
+                response = self.ask(f"¿Qué stock tienen de tenis {color}?")
+                self.assertEqual(response.status_code, 200)
+                self.assertIn(f"Modelo {root}", response.json["reply"])
+                self.assertIn("7 pares disponibles", response.json["reply"])
+                self.assertIn(f"%{root}%", self.queries[-1][1])
 
     def test_location_faq_returns_store_address_without_catalog_lookup(self):
         response = self.ask("ubicacion")

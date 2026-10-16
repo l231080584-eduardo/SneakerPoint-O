@@ -653,7 +653,7 @@ def favoritos():
 _CHATBOT_STOP_WORDS = {
     "a", "al", "algo", "algun", "alguna", "algunas", "algunos", "algun", "ayuda",
     "busca", "busco", "buscar", "buscando", "catalogo", "consulta", "consultar",
-    "con", "de", "del", "disponible", "disponibles", "donde", "el", "ella", "ellos",
+    "con", "de", "del", "disponible", "disponibles", "disponibilidad", "donde", "el", "ella", "ellos",
     "en", "es", "ese", "esa", "estos", "estas", "favor", "hay", "hola", "buenas",
     "buenos", "dias", "tardes", "noches", "la", "las", "lo",
     "los", "mas", "me", "mi", "mis", "modelo", "modelos", "mostrar", "muestra",
@@ -661,6 +661,7 @@ _CHATBOT_STOP_WORDS = {
     "barato", "baratos", "barata", "baratas", "economico", "economicos", "economica", "economicas",
     "caro", "caros", "cara", "caras", "color", "colores", "talla", "tallas", "cuanto", "cuesta",
     "menos", "menor", "hasta", "maximo",
+    "stock", "existencia", "existencias", "cantidad", "cantidades", "inventario",
     "saber", "tenis", "tienen", "tienes", "un", "una", "unas", "unos", "ver", "y",
     "cuestan", "costar", "costaria", "costarian", "serian", "salen", "sale",
     "marca", "marcas", "cual", "cuales", "son", "estan", "están", "tipo", "tipos",
@@ -668,7 +669,26 @@ _CHATBOT_STOP_WORDS = {
     "existe", "existen", "tendencia", "tendencias", "moda", "casual", "casuales",
     "deportivo", "deportivos", "deportiva", "deportivas", "infantil", "infantiles",
 }
-
+_CHATBOT_COLOR_SEARCH_ROOTS = {
+    "azul": "azul", "azules": "azul",
+    "blanco": "blanc", "blanca": "blanc", "blancos": "blanc", "blancas": "blanc",
+    "negro": "negr", "negra": "negr", "negros": "negr", "negras": "negr",
+    "rojo": "roj", "roja": "roj", "rojos": "roj", "rojas": "roj",
+    "verde": "verd", "verdes": "verd",
+    "gris": "gris", "grises": "gris",
+    "amarillo": "amarill", "amarilla": "amarill", "amarillos": "amarill", "amarillas": "amarill",
+    "naranja": "naranj", "naranjas": "naranj",
+    "rosa": "ros", "rosas": "ros",
+    "morado": "morad", "morada": "morad", "morados": "morad", "moradas": "morad",
+    "cafe": "caf", "cafes": "caf",
+    "marron": "marron", "marrones": "marron",
+    "beige": "beig", "beiges": "beig",
+    "violeta": "violet", "violetas": "violet",
+    "lila": "lil", "lilas": "lil",
+    "turquesa": "turques", "turquesas": "turques",
+    "dorado": "dorad", "dorada": "dorad", "dorados": "dorad", "doradas": "dorad",
+    "plateado": "platead", "plateada": "platead", "plateados": "platead", "plateadas": "platead",
+}
 _CHATBOT_ADULT_SIZE_GUIDE = (
     ("24", "38", "6", "7.5", "23.5–24"),
     ("24.5", "39", "6.5", "8", "24–24.5"),
@@ -737,7 +757,8 @@ def _chatbot_normalize(value):
 
 def _chatbot_tokens(value):
     return [
-        token for token in re.findall(r"[a-z0-9]+", _chatbot_normalize(value))
+        _CHATBOT_COLOR_SEARCH_ROOTS.get(token, token)
+        for token in re.findall(r"[a-z0-9]+", _chatbot_normalize(value))
         if len(token) > 1 and token not in _CHATBOT_STOP_WORDS
     ]
 
@@ -790,10 +811,10 @@ def _chatbot_classify_intents(message):
     has_product_terms = bool(re.search(
         r"\b(tenis|zapatos|calzado|producto|productos|modelo|modelos|catalogo|marca|marcas|"
         r"color|colores|stock|existencia|existencias|disponible|disponibles|disponibilidad|"
-        r"azul(?:es)?|blanc[oa]s?|negr[oa]s?|roj[oa]s?|verdes?|gris(?:es)?|"
-        r"amarill[oa]s?|naranjas?|rosas?|morad[oa]s?|cafes?|beiges?|dorad[oa]s?|platead[oa]s?|"
         r"nike|adidas|puma|reebok|converse|vans|new balance|jordan|asics|under armour)\b",
         normalized,
+    )) or bool(re.search(
+        r"\b(?:" + "|".join(_CHATBOT_COLOR_SEARCH_ROOTS) + r")\b", normalized
     ))
     size_is_product_filter = bool(
         re.search(r"\btalla\s*\d", normalized)
