@@ -711,8 +711,8 @@ _CHATBOT_FAQ = {
     ),
     "contact": "Puedes contactarnos por correo en sneakerpoint@gmail.com o llamar al 55 6127 2829.",
     "location": (
-        "No hay una dirección de tienda publicada en la información disponible. "
-        "Puedes preguntar por correo en sneakerpoint@gmail.com o llamar al 55 6127 2829."
+        "Nuestra tienda está ubicada en Av. Telecomunicaciones S/N, Col. Chinampac de Juárez, "
+        "C.P. 09208, Iztapalapa, CDMX."
     ),
     "social": (
         "Facebook, Instagram y X aparecen como próximamente; no hay enlaces oficiales de redes sociales "
@@ -790,6 +790,8 @@ def _chatbot_classify_intents(message):
     has_product_terms = bool(re.search(
         r"\b(tenis|zapatos|calzado|producto|productos|modelo|modelos|catalogo|marca|marcas|"
         r"color|colores|stock|existencia|existencias|disponible|disponibles|disponibilidad|"
+        r"azul(?:es)?|blanc[oa]s?|negr[oa]s?|roj[oa]s?|verdes?|gris(?:es)?|"
+        r"amarill[oa]s?|naranjas?|rosas?|morad[oa]s?|cafes?|beiges?|dorad[oa]s?|platead[oa]s?|"
         r"nike|adidas|puma|reebok|converse|vans|new balance|jordan|asics|under armour)\b",
         normalized,
     ))

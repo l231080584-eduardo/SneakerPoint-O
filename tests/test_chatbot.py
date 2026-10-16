@@ -227,6 +227,31 @@ class ChatbotRegressionTests(unittest.TestCase):
         self.assertIn("Facebook", response.json["reply"])
         self.assertEqual(self.queries, [])
 
+    def test_color_only_questions_search_the_catalog(self):
+        cases = (
+            ("azul", ("Air Jordan 1 Mid", "Chuck Taylor")),
+            ("blanco", ("Air Force 1", "Air Max 97")),
+        )
+        for color, expected_models in cases:
+            with self.subTest(color=color):
+                self.queries.clear()
+                response = self.ask(color)
+                self.assertEqual(response.status_code, 200)
+                for model in expected_models:
+                    self.assertIn(model, response.json["reply"])
+                self.assertTrue(self.queries)
+                self.assertIn(f"%{color}%", self.queries[-1][1])
+
+    def test_location_faq_returns_store_address_without_catalog_lookup(self):
+        response = self.ask("ubicacion")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(
+            "Av. Telecomunicaciones S/N, Col. Chinampac de Juárez, "
+            "C.P. 09208, Iztapalapa, CDMX",
+            response.json["reply"],
+        )
+        self.assertEqual(self.queries, [])
+
     def test_switching_context_to_social_does_not_reuse_catalog_filter(self):
         response = self.ask(
             "¿Tienen Facebook?",
