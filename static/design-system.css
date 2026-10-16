@@ -2035,6 +2035,26 @@ body.high-contrast .auth-container .flash-message.flash-success {
 }
 
 @media (max-width: 700px) {
+    html {
+        scroll-padding-top: 180px;
+    }
+
+    .product-image-placeholder {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .product-image-placeholder img {
+        box-sizing: border-box;
+        width: 100% !important;
+        height: 100% !important;
+        min-width: 0;
+        min-height: 0;
+        padding: 12px;
+        object-fit: contain !important;
+        mix-blend-mode: normal;
+        transform: none !important;
+    }
+
     .cart-item {
         grid-template-columns: minmax(0, 1fr) auto;
         gap: 12px;
