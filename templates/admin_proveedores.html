@@ -16,7 +16,7 @@
         <div class="form-group"><label for="correo">Correo</label><input id="correo" name="correo" type="email" required></div>
         <div class="form-group"><label for="telefono">Teléfono</label><input id="telefono" name="telefono" type="tel"></div>
         <div class="form-group"><label for="localidad">Localidad</label><input id="localidad" name="localidad"></div>
-        <div class="form-group"><label for="contraseña">Contraseña inicial</label><input id="contraseña" name="contraseña" type="password" minlength="8" maxlength="20" pattern="(?=.*\p{Lu})(?=.*\p{Ll})(?=.*\p{N})(?=.*[^\p{L}\p{N}\s]).{8,20}" title="Usa entre 8 y 20 caracteres, con mayúscula, minúscula, número y símbolo." autocomplete="new-password" required><small>Entre 8 y 20 caracteres, con mayúscula, minúscula, número y símbolo.</small></div>
+        <div class="form-group"><label for="contraseña">Contraseña inicial</label><div class="password-input-wrap"><input id="contraseña" name="contraseña" type="password" minlength="8" maxlength="20" pattern="(?=.*\p{Lu})(?=.*\p{Ll})(?=.*\p{N})(?=.*[^\p{L}\p{N}\s]).{8,20}" title="Usa entre 8 y 20 caracteres, con mayúscula, minúscula, número y símbolo." autocomplete="new-password" required><button class="password-toggle" type="button" data-password-toggle aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña"><i class="fas fa-eye-slash" aria-hidden="true"></i></button></div><small>Entre 8 y 20 caracteres, con mayúscula, minúscula, número y símbolo.</small></div>
         <button type="submit" class="btn-primary btn-full-width">Agregar al directorio</button>
     </form>
 
@@ -95,7 +95,7 @@
                     <div class="form-group"><label for="edit-phone-{{ provider.id_proveedor }}">Teléfono</label><input id="edit-phone-{{ provider.id_proveedor }}" name="telefono" type="tel" value="{{ provider.telefono or '' }}"></div>
                     <div class="form-group"><label for="edit-location-{{ provider.id_proveedor }}">Localidad</label><input id="edit-location-{{ provider.id_proveedor }}" name="localidad" value="{{ provider.localidad or '' }}"></div>
                 </div>
-                <div class="form-group"><label for="edit-password-{{ provider.id_proveedor }}">Restablecer contraseña (opcional)</label><input id="edit-password-{{ provider.id_proveedor }}" name="contraseña" type="password" minlength="8" maxlength="20" pattern="(?=.*\p{Lu})(?=.*\p{Ll})(?=.*\p{N})(?=.*[^\p{L}\p{N}\s]).{8,20}" title="Usa entre 8 y 20 caracteres, con mayúscula, minúscula, número y símbolo." autocomplete="new-password"><small>Déjalo vacío para conservar la contraseña actual.</small></div>
+                <div class="form-group"><label for="edit-password-{{ provider.id_proveedor }}">Restablecer contraseña (opcional)</label><div class="password-input-wrap"><input id="edit-password-{{ provider.id_proveedor }}" name="contraseña" type="password" minlength="8" maxlength="20" pattern="(?=.*\p{Lu})(?=.*\p{Ll})(?=.*\p{N})(?=.*[^\p{L}\p{N}\s]).{8,20}" title="Usa entre 8 y 20 caracteres, con mayúscula, minúscula, número y símbolo." autocomplete="new-password"><button class="password-toggle" type="button" data-password-toggle aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña"><i class="fas fa-eye-slash" aria-hidden="true"></i></button></div><small>Déjalo vacío para conservar la contraseña actual.</small></div>
                 <div class="provider-dialog-actions"><button class="btn-secondary" type="button" data-dialog-close>Cancelar</button><button class="btn-primary" type="submit"><i class="fas fa-save" aria-hidden="true"></i> Guardar cambios</button></div>
             </form>
         </dialog>
@@ -120,4 +120,5 @@
         {% endif %}
     </section>
 </div>
+<script src="{{ url_for('static', filename='password-toggle.js') }}"></script>
 {% endblock %}

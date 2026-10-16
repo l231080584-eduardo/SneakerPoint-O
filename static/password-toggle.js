@@ -5,11 +5,11 @@ document.querySelectorAll('[data-password-toggle]').forEach((toggle) => {
     if (!input || !icon) return;
 
     toggle.addEventListener('click', () => {
-        const isVisible = input.type === 'text';
-        input.type = isVisible ? 'password' : 'text';
-        toggle.setAttribute('aria-pressed', String(!isVisible));
-        toggle.setAttribute('aria-label', isVisible ? 'Mostrar contraseña' : 'Ocultar contraseña');
-        toggle.title = isVisible ? 'Mostrar contraseña' : 'Ocultar contraseña';
+        const isVisible = input.type === 'password';
+        input.type = isVisible ? 'text' : 'password';
+        toggle.setAttribute('aria-pressed', String(isVisible));
+        toggle.setAttribute('aria-label', isVisible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+        toggle.title = isVisible ? 'Ocultar contraseña' : 'Mostrar contraseña';
         icon.classList.toggle('fa-eye', isVisible);
         icon.classList.toggle('fa-eye-slash', !isVisible);
     });
