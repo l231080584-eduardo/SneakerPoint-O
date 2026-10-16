@@ -1961,6 +1961,56 @@ body.high-contrast .main-container .icon-button.danger {
     color: #ff0 !important;
 }
 
+.provider-table-view .orders-table {
+    min-width: 1025px !important;
+    table-layout: fixed;
+}
+
+.provider-table-view .orders-table :is(th, td):nth-child(1) { width: 150px; }
+.provider-table-view .orders-table :is(th, td):nth-child(2) { width: 145px; }
+.provider-table-view .orders-table :is(th, td):nth-child(3) { width: 220px; }
+.provider-table-view .orders-table :is(th, td):nth-child(4) { width: 140px; }
+.provider-table-view .orders-table :is(th, td):nth-child(5) { width: 160px; }
+.provider-table-view .orders-table :is(th, td):nth-child(6) { width: 210px; }
+
+.provider-table-view .orders-table tbody th[scope="row"] {
+    color: var(--ink) !important;
+    background: var(--surface) !important;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.provider-table-view .orders-table td {
+    color: var(--ink) !important;
+    overflow-wrap: anywhere;
+}
+
+.provider-table-view .orders-table td:nth-child(5) {
+    text-align: center;
+}
+
+.provider-table-view .orders-table td:nth-child(5) .status-pill {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+body.dark-mode .main-container :is(.product-image-placeholder, .image-placeholder) {
+    background: #f0efec !important;
+    border-color: #d7d4ce !important;
+}
+
+body.dark-mode .main-container :is(.product-image-placeholder, .image-placeholder) img {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    box-sizing: border-box;
+    object-fit: contain !important;
+    padding: 14px;
+    mix-blend-mode: normal !important;
+}
+
 .flash-message.flash-success,
 .app-toast:not(.app-toast-error) {
     border-color: #f3b58c !important;

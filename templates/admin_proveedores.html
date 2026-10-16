@@ -55,7 +55,7 @@
                         <td>{{ provider.contacto or 'Sin contacto' }}{% if provider.telefono %}<br><small>{{ provider.telefono }}</small>{% endif %}</td>
                         <td><a href="mailto:{{ provider.correo }}">{{ provider.correo }}</a></td>
                         <td>{{ provider.localidad or 'No indicada' }}</td>
-                        <td><span class="status-pill">{{ status_label }}</span></td>
+                        <td><span class="status-pill {{ 'status-activo' if provider.activo else 'status-pending' }}">{{ status_label }}</span></td>
                         <td><div class="table-actions"><button class="btn-secondary compact-button" type="button" data-provider-dialog="provider-edit-{{ provider.id_proveedor }}">Editar</button><button class="btn-primary compact-button" type="button" data-provider-dialog="provider-manage-{{ provider.id_proveedor }}">Gestionar</button></div></td>
                     </tr>
                     {% endfor %}
@@ -66,7 +66,7 @@
                 {% for provider in proveedores %}
                 {% set status_label = 'Activo' if provider.activo else 'Pendiente / pausado' %}
                 <article class="provider-directory-card" data-provider-item data-search="{{ provider.razon_social }} {{ provider.contacto or '' }} {{ provider.correo }} {{ provider.telefono or '' }} {{ provider.localidad or '' }} {{ status_label }}">
-                    <div class="provider-directory-card-heading"><h3>{{ provider.razon_social }}</h3><span class="status-pill">{{ status_label }}</span></div>
+                    <div class="provider-directory-card-heading"><h3>{{ provider.razon_social }}</h3><span class="status-pill {{ 'status-activo' if provider.activo else 'status-pending' }}">{{ status_label }}</span></div>
                     <dl>
                         <div><dt>Contacto</dt><dd>{{ provider.contacto or 'Sin contacto' }}</dd></div>
                         <div><dt>Correo</dt><dd><a href="mailto:{{ provider.correo }}">{{ provider.correo }}</a></dd></div>
